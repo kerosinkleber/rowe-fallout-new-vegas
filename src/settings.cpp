@@ -33,6 +33,10 @@
 //   autosave=0       1 saves every autosaveminutes minutes of play (not in menus, loading or combat)
 //   autosaveminutes=20  1-240
 //   autosaveslots=3  the saves "ROWE Autosave 1"..N are used in turn (1-10); autosavenext= the next
+//   photokey=F10     photo mode shortcut, a key name as screenshotkey, optionally with Ctrl+ / Alt+
+//   photofast=5      photo mode: the fly speed while Shift is held, times the normal speed (1-50)
+//   photofreeze=0    photo mode: 1 freezes the world
+//   photohud=1       photo mode: 1 hides the HUD
 //
 // Section [dev] (testing only, FalloutPrefs.ini is not changed):
 //   fullscreen=0/1   overrides the game's bFull Screen at start; -1 or absent leaves it alone
@@ -125,6 +129,17 @@ void SettingsLoad()
     if (s.autosaveSlots > 10) s.autosaveSlots = 10;
     s.autosaveNext = (int)ReadFloat("autosavenext", 1);
     if (s.autosaveNext < 1 || s.autosaveNext > s.autosaveSlots) s.autosaveNext = 1;
+    ReadString("photokey", "F10", buf, sizeof(buf));
+    s.photoKey = ShortcutFromName(buf);
+    if (!s.photoKey) {
+        Log("settings: unknown photokey '%s', using F10", buf);
+        s.photoKey = VK_F10;
+    }
+    s.photoFast = (int)ReadFloat("photofast", 5);
+    if (s.photoFast < 1) s.photoFast = 1;
+    if (s.photoFast > 50) s.photoFast = 50;
+    s.photoFreeze = ReadFloat("photofreeze", 0) != 0;
+    s.photoHud = ReadFloat("photohud", 1) != 0;
     if (s.screenshotQuality < 1) s.screenshotQuality = 1;
     if (s.screenshotQuality > 100) s.screenshotQuality = 100;
     char path[MAX_PATH];
@@ -189,4 +204,10 @@ void SettingsSave()
     WritePrivateProfileStringA("rowe", "autosaveslots", v, path);
     sprintf(v, "%d", g_settings.autosaveNext);
     WritePrivateProfileStringA("rowe", "autosavenext", v, path);
+    ShortcutName(g_settings.photoKey, v, sizeof(v));
+    WritePrivateProfileStringA("rowe", "photokey", v, path);
+    sprintf(v, "%d", g_settings.photoFast);
+    WritePrivateProfileStringA("rowe", "photofast", v, path);
+    WritePrivateProfileStringA("rowe", "photofreeze", g_settings.photoFreeze ? "1" : "0", path);
+    WritePrivateProfileStringA("rowe", "photohud", g_settings.photoHud ? "1" : "0", path);
 }

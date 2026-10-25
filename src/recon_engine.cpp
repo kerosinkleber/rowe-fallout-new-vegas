@@ -487,6 +487,7 @@ void ReconEngineMainLoop()
     GameCmdTick();
     McmTick();
     AutosaveTick();
+    PhotoTick();
     DWORD now = GetTickCount();
     if (now - s_lastStateTick >= 250) {
         s_lastStateTick = now;

@@ -146,7 +146,7 @@ enum { kList = 1, kScale = 2, kCheck = 5 };
 enum {
     kOptFov = 1, kOptFovGame, kOptLens, kOptFisheye, kOptScope, kOptZoom, kOptZoomGame, kOptPipboy, kOptPipboyGame,
     kOptSupersample, kOptMousetrap, kOptIntros, kOptShotSize, kOptShotFormat, kOptShotQuality, kOptAutosave,
-    kOptAutosaveMinutes, kOptAutosaveSlots, kOptCount
+    kOptAutosaveMinutes, kOptAutosaveSlots, kOptPhotoFast, kOptPhotoHud, kOptPhotoFreeze, kOptCount
 };
 
 static const char* kLensNames[kLensModeCount] = {"Off", "Auto", "Panini", "Stereographic", "Fisheye"};
@@ -178,6 +178,9 @@ static const char* Title(int id)
     case kOptAutosave: return "Autosave";
     case kOptAutosaveMinutes: return "Autosave every (minutes of play)";
     case kOptAutosaveSlots: return "Autosave slots";
+    case kOptPhotoFast: return "Photo mode: fast speed (Shift)";
+    case kOptPhotoHud: return "Photo mode: hide the HUD";
+    case kOptPhotoFreeze: return "Photo mode: freeze the world";
     }
     return "";
 }
@@ -207,6 +210,10 @@ static const char* Help(int id)
                               "screens and combat are not counted. Any save starts the count again.";
     case kOptAutosaveMinutes: return "Minutes of play between autosaves.";
     case kOptAutosaveSlots: return "How many autosaves are kept: the oldest is overwritten.";
+    case kOptPhotoFast: return "Photo mode (its shortcut, F10 by default, is set in the F8 menu or the launcher): how much "
+                               "faster the camera flies while Shift is held.";
+    case kOptPhotoHud: return "Hides the HUD while photo mode is on.";
+    case kOptPhotoFreeze: return "Stops everything (people, weather, effects) while photo mode is on.";
     }
     return "";
 }
@@ -278,6 +285,12 @@ static void Fill()
     Opt(kOptAutosaveSlots, "_type", kScale);
     Opt(kOptAutosaveSlots, "_value", (float)g_settings.autosaveSlots);
     Opt(kOptAutosaveSlots, "_enable", g_settings.autosave ? 1.f : 2.f);
+    Opt(kOptPhotoFast, "_type", kScale);
+    Opt(kOptPhotoFast, "_value", (float)g_settings.photoFast);
+    Opt(kOptPhotoHud, "_type", kCheck);
+    Opt(kOptPhotoHud, "_value", g_settings.photoHud);
+    Opt(kOptPhotoFreeze, "_type", kCheck);
+    Opt(kOptPhotoFreeze, "_value", g_settings.photoFreeze);
 }
 
 static void FillList(int option)
@@ -326,6 +339,7 @@ static void ShowScale(int option)
     case kOptShotQuality: lo = 50; hi = 100; v = (float)g_settings.screenshotQuality; break;
     case kOptAutosaveMinutes: lo = 1; hi = 240; v = (float)g_settings.autosaveMinutes; break;
     case kOptAutosaveSlots: lo = 1; hi = 10; v = (float)g_settings.autosaveSlots; break;
+    case kOptPhotoFast: lo = 1; hi = 50; v = (float)g_settings.photoFast; break;
     default: return;
     }
     SetF("StartMenu/MCM/_ValueDecimal", 0);
@@ -345,6 +359,7 @@ static float ScaleDefault(int option)
     case kOptShotQuality: return 95;
     case kOptAutosaveMinutes: return 20;
     case kOptAutosaveSlots: return 3;
+    case kOptPhotoFast: return 5;
     }
     return 0;
 }
@@ -374,6 +389,9 @@ static void Apply(int option, float v)
         g_settings.autosaveSlots = (int)v;
         if (g_settings.autosaveNext > g_settings.autosaveSlots) g_settings.autosaveNext = 1;
         break;
+    case kOptPhotoFast: g_settings.photoFast = (int)v; break;
+    case kOptPhotoHud: g_settings.photoHud = v != 0; break;
+    case kOptPhotoFreeze: g_settings.photoFreeze = v != 0; break;
     default: return;
     }
     Log("mcm: option %d set to %g", option, v);

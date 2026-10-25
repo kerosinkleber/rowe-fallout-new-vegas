@@ -16,6 +16,7 @@
 //                    shot / shotscene      screenshot of the finished frame / of the scene before the HUD
 //                    shotmenu              screenshot including the settings menu
 //                    usershot              screenshot as the screenshot key takes it (screenshotdir, size, format)
+//                    photo                 photo mode on / off, as the photo shortcut
 //                    overlay <action>      settings menu: open, close, up, down, left, right, home
 //                    set <key> <value>     change a setting (fov, zoomfov, lens, pipboyfov, supersample, mousetrap, skipintros, scopelens)
 //                    reload                re-read rowe.ini
@@ -105,6 +106,8 @@ static bool RunConsole(const char* line)
     return ok;
 }
 
+bool GameConsole(const char* line) { return RunConsole(line); }
+
 static void Key(const char* fn, const char* name)
 {
     int code = KeyCode(name);
@@ -189,6 +192,7 @@ static void Run(char* cmd)
     else if (lstrcmpiA(cmd, "shotscene") == 0) ScreenshotRequest(kShotScene);
     else if (lstrcmpiA(cmd, "shotmenu") == 0) ScreenshotRequest(kShotWithMenu);
     else if (lstrcmpiA(cmd, "usershot") == 0) ScreenshotRequest(kShotUser);
+    else if (lstrcmpiA(cmd, "photo") == 0) PhotoToggle();
     else if (lstrcmpiA(cmd, "overlay") == 0 && arg) OverlayCommand(arg);
     else if (lstrcmpiA(cmd, "reload") == 0) SettingsLoad();
     else if (lstrcmpiA(cmd, "devicelost") == 0) D3DSimulateDeviceLost();

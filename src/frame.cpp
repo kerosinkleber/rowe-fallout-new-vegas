@@ -44,6 +44,7 @@ void ModWriteState(FILE* f)
     SupersampleWriteState(f);
     ReshadeWriteState(f);
     AutosaveWriteState(f);
+    PhotoWriteState(f);
     MouseTrapWriteState(f);
     DinputWriteState(f);
     UiWriteState(f);

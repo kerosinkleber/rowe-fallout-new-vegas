@@ -157,6 +157,9 @@ static int g_menuKey = VK_F8, g_shotKey = VK_F12;
 static std::string g_shotDir;  // ANSI, as in the INI file
 static bool g_autosave;          // rowe.ini autosave / autosaveminutes / autosaveslots (the plugin's autosave)
 static int g_autosaveMin = 20, g_autosaveSlots = 3;
+static int g_photoKey = VK_F10;  // rowe.ini photokey (a shortcut: key | Ctrl / Alt), photofast, photohud, photofreeze
+static int g_photoFast = 5;
+static bool g_photoHud = true, g_photoFreeze;
 static bool g_slideshow = true;  // [launcher] slideshow: the loading screens behind the launcher
 static int g_slideBright = 50;   // [launcher] slidebrightness: how much of them shows through, percent
 static int g_fontBase = 28;      // [launcher] textsize: the text size in pixels for a kFontRefW x kFontRefH window
@@ -210,6 +213,17 @@ static void Reload()
     g_autosaveSlots = (int)GetPrivateProfileIntA("rowe", "autosaveslots", 3, g_paths.modIni.c_str());
     if (g_autosaveSlots < 1) g_autosaveSlots = 1;
     if (g_autosaveSlots > 10) g_autosaveSlots = 10;
+    {
+        char k[48];
+        GetPrivateProfileStringA("rowe", "photokey", "F10", k, sizeof(k), g_paths.modIni.c_str());
+        g_photoKey = ShortcutFromName(k);
+        if (!g_photoKey) g_photoKey = VK_F10;
+    }
+    g_photoFast = (int)GetPrivateProfileIntA("rowe", "photofast", 5, g_paths.modIni.c_str());
+    if (g_photoFast < 1) g_photoFast = 1;
+    if (g_photoFast > 50) g_photoFast = 50;
+    g_photoHud = GetPrivateProfileIntA("rowe", "photohud", 1, g_paths.modIni.c_str()) != 0;
+    g_photoFreeze = GetPrivateProfileIntA("rowe", "photofreeze", 0, g_paths.modIni.c_str()) != 0;
     g_slideshow = GetPrivateProfileIntA("launcher", "slideshow", 1, g_paths.modIni.c_str()) != 0;
     g_slideBright = (int)GetPrivateProfileIntA("launcher", "slidebrightness", 50, g_paths.modIni.c_str());
     if (g_slideBright < 10) g_slideBright = 10;
@@ -805,7 +819,7 @@ static void DrawWaterRows()
 
 // ---- the mod's keys and screenshot folder ----------------------------------------------------
 
-static int* g_captureInto;  // the key the next key press sets (g_menuKey or g_shotKey), or null
+static int* g_captureInto;  // the key the next key press sets (g_menuKey, g_shotKey or g_photoKey), or null
 
 static void WriteMod(const char* key, const char* value, const char* what)
 {
@@ -813,8 +827,8 @@ static void WriteMod(const char* key, const char* value, const char* what)
     else Status(true, "Could not write %s (%lu)", g_paths.modIni.c_str(), GetLastError());
 }
 
-// A key press while "press a key..." is shown (from the window procedure). Esc cancels; the other
-// of the two keys is refused (the screenshot key would also toggle the menu).
+// A key press while "press a key..." is shown (from the window procedure). Esc cancels; a key one
+// of the other two already uses is refused (one key would do two things).
 static bool CaptureKey(int vk)
 {
     if (!g_captureInto) return false;
@@ -823,18 +837,25 @@ static bool CaptureKey(int vk)
     int* into = g_captureInto;
     g_captureInto = nullptr;
     if (vk == VK_ESCAPE) { Status(false, "Key unchanged"); return true; }
-    bool menu = into == &g_menuKey;
-    char name[32];
-    KeyName(vk, name, sizeof(name));
-    if (vk == (menu ? g_shotKey : g_menuKey)) {
-        Status(true, "%s is already the %s key", name, menu ? "screenshot" : "menu");
+    // The photo shortcut takes Ctrl / Alt held with it; no key may be one another already uses.
+    int value = vk;
+    if (into == &g_photoKey) value |= ShortcutModifiersHeld();
+    char name[48];
+    ShortcutName(value, name, sizeof(name));
+    const char* taken = into != &g_menuKey && value == g_menuKey             ? "menu"
+                        : into != &g_shotKey && value == g_shotKey           ? "screenshot"
+                        : into != &g_photoKey && value == g_photoKey         ? "photo mode"
+                                                                             : nullptr;
+    if (taken) {
+        Status(true, "%s is already the %s key", name, taken);
         return true;
     }
-    *into = vk;
-    char what[64];
-    _snprintf(what, sizeof(what) - 1, "%s key %s", menu ? "Menu" : "Screenshot", name);
-    what[sizeof(what) - 1] = 0;
-    WriteMod(menu ? "menukey" : "screenshotkey", name, what);
+    *into = value;
+    const char* what = into == &g_menuKey ? "Menu" : into == &g_shotKey ? "Screenshot" : "Photo mode";
+    char status[96];
+    _snprintf(status, sizeof(status) - 1, "%s key %s", what, name);
+    status[sizeof(status) - 1] = 0;
+    WriteMod(into == &g_menuKey ? "menukey" : into == &g_shotKey ? "screenshotkey" : "photokey", name, status);
     return true;
 }
 
@@ -964,6 +985,32 @@ static void DrawModRows()
     }
     HudTip("How many autosaves are kept (1-10): the oldest is overwritten.");
     ImGui::EndDisabled();
+    // Photo mode: its shortcut, the fast speed, the HUD and the frozen world.
+    LabelCell("Photo mode shortcut", "Starts and ends photo mode in the game (a flying camera; the player invisible and "
+                                     "undetectable). Click, then press the key, with Ctrl and/or Alt if you like (Shift is the "
+                                     "speed key; Ctrl is also the game's sneak key, Alt is free). Esc cancels.",
+              kIniNone);
+    {
+        char name[48], btn[80];
+        ShortcutName(g_photoKey, name, sizeof(name));
+        if (g_captureInto == &g_photoKey) _snprintf(btn, sizeof(btn) - 1, "press a key...###photokey");
+        else _snprintf(btn, sizeof(btn) - 1, "%s###photokey", name);
+        btn[sizeof(btn) - 1] = 0;
+        if (ImGui::Button(btn, ImVec2(-FLT_MIN, 0))) g_captureInto = g_captureInto == &g_photoKey ? nullptr : &g_photoKey;
+    }
+    LabelCell("Photo fast speed", "How much faster the photo mode camera flies while Shift is held.", kIniNone);
+    HudSliderInt("##photofast", &g_photoFast, 1, 50, "%dx");
+    if (ImGui::IsItemDeactivatedAfterEdit()) {
+        char v[16], what[64];
+        wsprintfA(v, "%d", g_photoFast);
+        wsprintfA(what, "Photo fast speed %dx", g_photoFast);
+        WriteMod("photofast", v, what);
+    }
+    LabelCell("Photo: hide the HUD", "Hides the HUD while photo mode is on.", kIniNone);
+    if (HudCheckbox("##photohud", &g_photoHud)) WriteMod("photohud", g_photoHud ? "1" : "0", g_photoHud ? "Photo mode hides the HUD" : "Photo mode keeps the HUD");
+    LabelCell("Photo: freeze the world", "Stops everything (people, weather, effects) while photo mode is on.", kIniNone);
+    if (HudCheckbox("##photofreeze", &g_photoFreeze))
+        WriteMod("photofreeze", g_photoFreeze ? "1" : "0", g_photoFreeze ? "Photo mode freezes the world" : "Photo mode keeps the world running");
     LabelCell("Launcher background", "The game's loading screens as a slideshow behind this launcher (also those of loading "
                                      "screen replacers). Stored in rowe.ini, [launcher] slideshow=.",
               kIniNone);

@@ -585,6 +585,37 @@ static void DrawMenu(int backW, int backH)
             }
             ImGui::EndTabItem();
         }
+        if (ImGui::BeginTabItem("Photo")) {
+            if (ImGui::BeginTable("photo", 2, tf)) {
+                ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, labelW);
+                ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch);
+                LabelCell("Photo mode", "A free flying camera: the player is invisible and nothing can detect them. Move with "
+                                        "the movement keys and the mouse, hold Shift to fly faster. The shortcut ends it.");
+                ImGui::BeginDisabled(!PhotoActive() && !InGameplay());
+                if (ImGui::Button(PhotoActive() ? "end###photogo" : "start###photogo")) {
+                    PhotoToggle();
+                    if (PhotoActive()) s_open = false;  // out of the way
+                }
+                ImGui::EndDisabled();
+                LabelCell("Shortcut", "Starts and ends photo mode. Click, then press the key, with Ctrl and/or Alt if you like "
+                                      "(Shift is the speed key; Ctrl is also the game's sneak key, Alt is free). Esc cancels.");
+                char photoKey[48], photoBtn[80];
+                ShortcutName(g_settings.photoKey, photoKey, sizeof(photoKey));
+                bool capturingPhoto = s_capturingKey && s_captureInto == &g_settings.photoKey;
+                _snprintf(photoBtn, sizeof(photoBtn), capturingPhoto ? "press a key...###photokey" : "%s###photokey", photoKey);
+                if (ImGui::Button(photoBtn, ImVec2(-FLT_MIN, 0))) { s_capturingKey = 1; s_captureInto = &g_settings.photoKey; }
+                LabelCell("Fast speed", "How much faster the camera flies while Shift is held.");
+                HudSliderInt("##photofast", &g_settings.photoFast, 1, 50, "%dx");
+                if (ImGui::IsItemDeactivatedAfterEdit()) Changed();
+                LabelCell("Hide the HUD", "Hides the HUD while photo mode is on.");
+                if (HudCheckbox("##photohud", &g_settings.photoHud)) Changed();
+                LabelCell("Freeze the world", "Stops everything (people, weather, effects) while photo mode is on.");
+                if (HudCheckbox("##photofreeze", &g_settings.photoFreeze)) Changed();
+                ImGui::EndTable();
+                HudTableFrame(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), labelW);
+            }
+            ImGui::EndTabItem();
+        }
         if (ImGui::BeginTabItem("Other")) {
             if (ImGui::BeginTable("other", 2, tf)) {
                 ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, labelW);
@@ -658,8 +689,9 @@ static void DrawMenu(int backW, int backH)
     ImGui::End();
 }
 
-// The screenshot or menu key: the first key pressed after "press a key..." (Esc cancels; the
-// other of the two keys is refused, so the screenshot key never toggles the menu).
+// The screenshot, menu or photo key: the first key pressed after "press a key..." (Esc cancels; a
+// key the other two use is refused, so one key never does two things). The photo shortcut takes
+// Ctrl / Alt held with it.
 static void CaptureKey()
 {
     if (!s_capturingKey) return;
@@ -672,9 +704,13 @@ static void CaptureKey()
     for (int vk = 8; vk < 256; ++vk) {
         if (vk == VK_SHIFT || vk == VK_CONTROL || vk == VK_MENU || (vk >= VK_LSHIFT && vk <= VK_RMENU)) continue;
         if (!(GetAsyncKeyState(vk) & 0x8000)) continue;
-        int other = s_captureInto == &g_settings.menuKey ? g_settings.screenshotKey : g_settings.menuKey;
-        if (vk != VK_ESCAPE && vk != other) {
-            *s_captureInto = vk;
+        int value = vk;
+        if (s_captureInto == &g_settings.photoKey) value |= ShortcutModifiersHeld();
+        bool taken = (s_captureInto != &g_settings.menuKey && value == g_settings.menuKey) ||
+                     (s_captureInto != &g_settings.screenshotKey && value == g_settings.screenshotKey) ||
+                     (s_captureInto != &g_settings.photoKey && value == g_settings.photoKey);
+        if (vk != VK_ESCAPE && !taken) {
+            *s_captureInto = value;
             if (s_captureInto == &g_settings.menuKey) s_menuKeyDown = true;  // still held: not a press yet
             Changed();
         }

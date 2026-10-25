@@ -19,6 +19,7 @@ A mod for **Fallout: New Vegas** (PC) in the style of
   everywhere.
 - **Intro skip**: clears the intro video settings in memory.
 - **Autosave** every so many minutes of play (you choose the interval), into a few rotating saves.
+- **Photo mode**: a flying camera with the player invisible and undetectable; hold Shift to fly faster.
 - **Fullscreen at any size**: fullscreen at a size the monitor has no display mode for (1400x1400,
   say) would stop the game with "failed to initialize renderer"; the mod runs it as a borderless
   window of that size instead, centred on a black background.
@@ -89,7 +90,7 @@ HUD (the game's UI font from its archives, the HUD colour from its INI files):
   to `FalloutPrefs.ini`, or to `FalloutCustom.ini` where that file sets the key (marked `*`, since that
   is the value the game ends up with). Before its first change the launcher keeps a copy of each as
   `<name>.rowe-launcher.bak`.
-- **Mod:** autosave (on/off, minutes, slots); the settings menu key (default F8) and the screenshot key (default F12): click, then
+- **Mod:** autosave (on/off, minutes, slots); photo mode (shortcut, fast speed, hide the HUD, freeze the world); the settings menu key (default F8) and the screenshot key (default F12): click, then
   press the key (Esc cancels; the two must differ); the screenshot folder: typed (Enter applies),
   **browse** (Windows' folder picker) or **open** in Explorer, with the folder it resolves to.
   Saved to `rowe.ini` (`menukey`, `screenshotkey`, `screenshotdir`), the same values the
@@ -118,7 +119,8 @@ With [The Mod Configuration Menu](https://www.nexusmods.com/newvegas/mods/42507)
 enable `ROWE - MCM.esp` (in the archive, next to `NVSE`) and ROWE gets a page in the pause
 menu's *Mod Configuration*: field of view, lens, fisheye fill / full circle, scope overlay, zoom
 and Pip-Boy FOV (each with "use the game's"), supersampling (off, 2x, 4x, 9x ... 64x: MCM lists
-hold ten entries; other factors stay in the F8 menu), mouse trap, intro videos, autosave, and the screenshot
+hold ten entries; other factors stay in the F8 menu), mouse trap, intro videos, autosave, photo mode (fast speed, HUD,
+freeze; the shortcut is set in the F8 menu or the launcher), and the screenshot
 size, format and quality, with a help text for each. Changes are saved to `rowe.ini` like the F8
 menu's. The plugin contains one item (the entry MCM lists) and no scripts; without MCM it does
 nothing, and ROWE works the same without it. It uses one load order slot.
@@ -139,13 +141,15 @@ target `powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -F
 |---|---|
 | F8 | Open or close the settings menu (`menukey`) |
 | F12 | Screenshot (key, folder, size and format: in the menu, or the `screenshot...` settings below) |
+| F10 | Photo mode on / off (`photokey`, also with Ctrl / Alt). In photo mode: the movement keys and the mouse fly the camera, Shift held flies `photofast` times faster |
 
 The settings menu (F8) is used with the mouse (sliders, lists, checkboxes; hover for an
 explanation) or the keyboard (arrows, Enter, Tab). It has four tabs: **View** (FOV, lens, scope
 overlay, zoom FOV, Pip-Boy FOV with a **take out / put away** button to see the Pip-Boy while
 setting it; "game" uses the game's own value), **Image** (supersampling,
 ReShade first), **Screenshots** (key: click and press the new key; folder; size; format; JPEG
-quality; **browse** picks the folder in a list, like ReShade's path picker) and **Other** (mouse
+quality; **browse** picks the folder in a list, like ReShade's path picker), **Photo** (start / end, the shortcut,
+the fast speed, hide the HUD, freeze the world) and **Other** (mouse
 trap, intro videos, **autosave** (on/off, the minutes typed in, the number of slots), menu key, **stats**: a small window with the active lens and the supersampling
 sizes, also with the menu closed). Below the tabs, **restart game** applies the settings that only take effect
 at start (supersampling, intro videos; the row says when one is waiting): the game is saved as
@@ -182,6 +186,10 @@ the DLL:
 | `autosave` | `1` saves the game every `autosaveminutes` minutes of play as "ROWE Autosave 1", 2, ... in turn. Only time in gameplay counts (not menus, loading screens or the game in the background); when the time is up during combat or with the player dead it waits until that is over; loading, starting or saving a game (your own saves too) starts the count again. Also on the launcher's Mod tab and the MCM page. | `0` |
 | `autosaveminutes` | Minutes of play between autosaves, 1-240. | `20` |
 | `autosaveslots` | How many autosaves are kept, 1-10: the oldest is overwritten (`autosavenext` is the next slot). | `3` |
+| `photokey` | Photo mode shortcut: a key name as `screenshotkey`, optionally with `Ctrl+` / `Alt+` (e.g. `Alt+P`; Shift is the speed key, Ctrl is also the game's sneak key). Photo mode: the fly camera (`tfc`), the player invisible (`SetActorAlpha 0`) and undetectable (`tdetect`), the HUD hidden (`tm`) if `photohud=1`, the world frozen (`tfc 1`) if `photofreeze=1`. It starts only in gameplay; the shortcut again, loading a game, the main menu and quitting end it and restore everything. Autosave waits while it is on. | `F10` |
+| `photofast` | Photo mode: the fly speed while Shift is held, times the normal speed (1-50; the game's `fUFOCamSpeedMult:Controls`). | `5` |
+| `photohud` | Photo mode: `1` hides the HUD. | `1` |
+| `photofreeze` | Photo mode: `1` freezes the world. | `0` |
 
 Notes:
 

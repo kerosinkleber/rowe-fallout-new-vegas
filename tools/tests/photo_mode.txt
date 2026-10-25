@@ -1,0 +1,27 @@
+# Photo mode (Save 15, The Tops): on, a shot, fly forward (W held through xNVSE), a shot, off,
+# a shot. Nothing is saved. Needs the window in front.
+log photo_mode: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 30
+log before
+shot
+photo
+wait 60
+log photo on
+shot
+keydown w
+wait 90
+keyup w
+wait 20
+log flown
+shot
+photo
+wait 60
+log photo off
+shot
+wait 3600

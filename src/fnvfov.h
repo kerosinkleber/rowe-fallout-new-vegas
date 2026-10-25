@@ -64,6 +64,10 @@ struct Settings {
     int autosaveMinutes = 20;            // 1-240
     int autosaveSlots = 3;               // "ROWE Autosave 1"..N, in turn (1-10)
     int autosaveNext = 1;                // the slot the next autosave goes to
+    int photoKey = VK_F10;               // photo mode shortcut (key | kShortcutCtrl / kShortcutAlt)
+    int photoFast = 5;                   // fly speed factor while Shift is held (1-50)
+    bool photoFreeze = false;            // freeze the world in photo mode
+    bool photoHud = true;                // hide the HUD in photo mode
     int devFullscreen = -1;  // [dev] fullscreen: -1 = the game's own bFull Screen
     int devWidth = 0, devHeight = 0;  // [dev] size: window size for this start, 0 = the game's own
     bool devVatsShrink = true;  // [dev] vatsshrink=0: VATS image space at the game's size (comparison)
@@ -219,6 +223,7 @@ DWORD LastWorldDrawFrame();      // FrameCount() when the world was last drawn
 void GameCmdInit(void* consoleInterface);
 void GameCmdQueue(const char* line);  // appends a command (the mod's own sequences)
 void GameCmdNow(const char* line);    // runs a command on the next tick, ahead of the queue
+bool GameConsole(const char* line);   // runs a console line now (game thread)
 // restart.cpp: save, start the game again the same way, load the save (settings that apply at start).
 void RestartGame();
 void RestartNow(bool saved);
@@ -234,4 +239,10 @@ float ScriptValue(const char* expression);  // an xNVSE script expression's valu
 void AutosaveTick();                  // once per MainGameLoop
 void AutosaveReset(const char* why);  // a game was loaded, started or saved: count from 0
 void AutosaveWriteState(FILE* f);
+// photo.cpp: photo mode (fly camera, player invisible and undetectable, Shift = faster).
+void PhotoTick();                     // once per MainGameLoop
+void PhotoToggle();
+void PhotoExit(const char* why);      // ends it (load, main menu, quit) and restores everything
+bool PhotoActive();
+void PhotoWriteState(FILE* f);
 void GameCmdWriteState(FILE* f);

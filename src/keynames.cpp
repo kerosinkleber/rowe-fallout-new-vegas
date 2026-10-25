@@ -26,6 +26,37 @@ int KeyFromName(const char* n)
     return 0;
 }
 
+int ShortcutFromName(const char* n)
+{
+    int mods = 0;
+    for (;;) {
+        if (!_strnicmp(n, "Ctrl+", 5)) { mods |= kShortcutCtrl; n += 5; }
+        else if (!_strnicmp(n, "Alt+", 4)) { mods |= kShortcutAlt; n += 4; }
+        else break;
+    }
+    int vk = KeyFromName(n);
+    return vk ? vk | mods : 0;
+}
+
+void ShortcutName(int shortcut, char* out, int size)
+{
+    char key[32];
+    KeyName(shortcut & 0xFF, key, sizeof(key));
+    _snprintf(out, size, "%s%s%s", shortcut & kShortcutCtrl ? "Ctrl+" : "", shortcut & kShortcutAlt ? "Alt+" : "", key);
+    out[size - 1] = 0;
+}
+
+int ShortcutModifiersHeld()
+{
+    return ((GetAsyncKeyState(VK_CONTROL) & 0x8000) ? kShortcutCtrl : 0) | ((GetAsyncKeyState(VK_MENU) & 0x8000) ? kShortcutAlt : 0);
+}
+
+bool ShortcutDown(int shortcut)
+{
+    int vk = shortcut & 0xFF;
+    return vk && (GetAsyncKeyState(vk) & 0x8000) && ShortcutModifiersHeld() == (shortcut & (kShortcutCtrl | kShortcutAlt));
+}
+
 void KeyName(int vk, char* out, int size)
 {
     if (vk >= VK_F1 && vk <= VK_F24) { _snprintf(out, size, "F%d", vk - VK_F1 + 1); return; }

@@ -24,7 +24,7 @@ void AutosaveTick()
     DWORD now = GetTickCount(), dt = now - s_prevTick;
     s_prevTick = now;
     if (dt > 1000) dt = 0;  // a hitch, a loading screen or the game in the background
-    if (!g_settings.autosave || !InGameplay() || !GameInFront()) return;
+    if (!g_settings.autosave || !InGameplay() || !GameInFront() || PhotoActive()) return;  // not in photo mode
     s_playedMs += dt;
     if (s_playedMs < (DWORD)g_settings.autosaveMinutes * 60000) return;
     // Not in combat, not dead (script functions through xNVSE; without them, no check).

@@ -40,6 +40,7 @@ struct NVSEMessagingInterface {
         kMessage_ExitToMainMenu = 2,
         kMessage_LoadGame = 3,
         kMessage_SaveGame = 4,
+        kMessage_PreLoadGame = 6,
         kMessage_ExitGame_Console = 7,
         kMessage_PostLoadGame = 8,
         kMessage_PostPostLoad = 9,
