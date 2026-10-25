@@ -43,6 +43,7 @@ void ModWriteState(FILE* f)
     LensWriteState(f);
     SupersampleWriteState(f);
     ReshadeWriteState(f);
+    AutosaveWriteState(f);
     MouseTrapWriteState(f);
     DinputWriteState(f);
     UiWriteState(f);

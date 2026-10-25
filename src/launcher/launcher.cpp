@@ -155,6 +155,8 @@ static IniFile g_sizeWhere;
 // The mod's keys and screenshot folder (rowe.ini; key names as KeyFromName reads them).
 static int g_menuKey = VK_F8, g_shotKey = VK_F12;
 static std::string g_shotDir;  // ANSI, as in the INI file
+static bool g_autosave;          // rowe.ini autosave / autosaveminutes / autosaveslots (the plugin's autosave)
+static int g_autosaveMin = 10, g_autosaveSlots = 3;
 static bool g_slideshow = true;  // [launcher] slideshow: the loading screens behind the launcher
 static int g_slideBright = 50;   // [launcher] slidebrightness: how much of them shows through, percent
 static int g_fontBase = 28;      // [launcher] textsize: the text size in pixels for a kFontRefW x kFontRefH window
@@ -201,6 +203,13 @@ static void Reload()
     char dir[MAX_PATH];
     GetPrivateProfileStringA("rowe", "screenshotdir", "", dir, sizeof(dir), g_paths.modIni.c_str());
     g_shotDir = dir;
+    g_autosave = GetPrivateProfileIntA("rowe", "autosave", 0, g_paths.modIni.c_str()) != 0;
+    g_autosaveMin = (int)GetPrivateProfileIntA("rowe", "autosaveminutes", 10, g_paths.modIni.c_str());
+    if (g_autosaveMin < 1) g_autosaveMin = 1;
+    if (g_autosaveMin > 240) g_autosaveMin = 240;
+    g_autosaveSlots = (int)GetPrivateProfileIntA("rowe", "autosaveslots", 3, g_paths.modIni.c_str());
+    if (g_autosaveSlots < 1) g_autosaveSlots = 1;
+    if (g_autosaveSlots > 10) g_autosaveSlots = 10;
     g_slideshow = GetPrivateProfileIntA("launcher", "slideshow", 1, g_paths.modIni.c_str()) != 0;
     g_slideBright = (int)GetPrivateProfileIntA("launcher", "slidebrightness", 50, g_paths.modIni.c_str());
     if (g_slideBright < 10) g_slideBright = 10;
@@ -920,6 +929,41 @@ static void DrawModRows()
     HudTip("Open the folder in Explorer.");
     ImGui::SameLine();
     ImGui::TextDisabled("%s", Utf8(ShotFolder()).c_str());
+    // The mod's autosave: on/off, the minutes typed in, the number of slots.
+    LabelCell("Autosave", "Saves the game every so many minutes of play (menus, loading screens and time with the game in the "
+                          "background do not count) as \"ROWE Autosave 1\", 2, ... in turn. During combat it waits until the "
+                          "fight is over. Any save, your own too, starts the count again.",
+              kIniNone);
+    if (HudCheckbox("every##autosave", &g_autosave)) WriteMod("autosave", g_autosave ? "1" : "0", g_autosave ? "Autosave on" : "Autosave off");
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!g_autosave);
+    float numW = ImGui::CalcTextSize("0000").x + ImGui::GetStyle().FramePadding.x * 2;
+    ImGui::SetNextItemWidth(numW);
+    int minutes = g_autosaveMin;
+    if (ImGui::InputInt("##autosavemin", &minutes, 0, 0)) g_autosaveMin = minutes < 1 ? 1 : minutes > 240 ? 240 : minutes;
+    if (ImGui::IsItemDeactivatedAfterEdit()) {
+        char v[16], what[64];
+        wsprintfA(v, "%d", g_autosaveMin);
+        wsprintfA(what, "Autosave every %d min", g_autosaveMin);
+        WriteMod("autosaveminutes", v, what);
+    }
+    HudTip("Minutes of play between autosaves, 1-240. Press Enter or click elsewhere to apply.");
+    ImGui::SameLine();
+    ImGui::TextUnformatted("minutes");
+    ImGui::EndDisabled();
+    LabelCell("Autosave slots", "How many autosaves are kept (1-10): the oldest is overwritten.", kIniNone);
+    ImGui::BeginDisabled(!g_autosave);
+    ImGui::SetNextItemWidth(numW);
+    int slots = g_autosaveSlots;
+    if (ImGui::InputInt("##autosaveslots", &slots, 0, 0)) g_autosaveSlots = slots < 1 ? 1 : slots > 10 ? 10 : slots;
+    if (ImGui::IsItemDeactivatedAfterEdit()) {
+        char v[16], what[64];
+        wsprintfA(v, "%d", g_autosaveSlots);
+        wsprintfA(what, "Autosave slots: %d", g_autosaveSlots);
+        WriteMod("autosaveslots", v, what);
+    }
+    HudTip("How many autosaves are kept (1-10): the oldest is overwritten.");
+    ImGui::EndDisabled();
     LabelCell("Launcher background", "The game's loading screens as a slideshow behind this launcher (also those of loading "
                                      "screen replacers). Stored in rowe.ini, [launcher] slideshow=.",
               kIniNone);

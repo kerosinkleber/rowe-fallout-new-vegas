@@ -18,6 +18,7 @@ A mod for **Fallout: New Vegas** (PC) in the style of
   follows the Windows cursor, which can leave the window); "always" keeps it inside the window
   everywhere.
 - **Intro skip**: clears the intro video settings in memory.
+- **Autosave** every so many minutes of play (you choose the interval), into a few rotating saves.
 - **Fullscreen at any size**: fullscreen at a size the monitor has no display mode for (1400x1400,
   say) would stop the game with "failed to initialize renderer"; the mod runs it as a borderless
   window of that size instead, centred on a black background.
@@ -88,7 +89,7 @@ HUD (the game's UI font from its archives, the HUD colour from its INI files):
   to `FalloutPrefs.ini`, or to `FalloutCustom.ini` where that file sets the key (marked `*`, since that
   is the value the game ends up with). Before its first change the launcher keeps a copy of each as
   `<name>.rowe-launcher.bak`.
-- **Mod:** the settings menu key (default F8) and the screenshot key (default F12): click, then
+- **Mod:** autosave (on/off, minutes, slots); the settings menu key (default F8) and the screenshot key (default F12): click, then
   press the key (Esc cancels; the two must differ); the screenshot folder: typed (Enter applies),
   **browse** (Windows' folder picker) or **open** in Explorer, with the folder it resolves to.
   Saved to `rowe.ini` (`menukey`, `screenshotkey`, `screenshotdir`), the same values the
@@ -117,7 +118,7 @@ With [The Mod Configuration Menu](https://www.nexusmods.com/newvegas/mods/42507)
 enable `ROWE - MCM.esp` (in the archive, next to `NVSE`) and ROWE gets a page in the pause
 menu's *Mod Configuration*: field of view, lens, fisheye fill / full circle, scope overlay, zoom
 and Pip-Boy FOV (each with "use the game's"), supersampling (off, 2x, 4x, 9x ... 64x: MCM lists
-hold ten entries; other factors stay in the F8 menu), mouse trap, intro videos, and the screenshot
+hold ten entries; other factors stay in the F8 menu), mouse trap, intro videos, autosave, and the screenshot
 size, format and quality, with a help text for each. Changes are saved to `rowe.ini` like the F8
 menu's. The plugin contains one item (the entry MCM lists) and no scripts; without MCM it does
 nothing, and ROWE works the same without it. It uses one load order slot.
@@ -145,7 +146,7 @@ overlay, zoom FOV, Pip-Boy FOV with a **take out / put away** button to see the 
 setting it; "game" uses the game's own value), **Image** (supersampling,
 ReShade first), **Screenshots** (key: click and press the new key; folder; size; format; JPEG
 quality; **browse** picks the folder in a list, like ReShade's path picker) and **Other** (mouse
-trap, intro videos, menu key, **stats**: a small window with the active lens and the supersampling
+trap, intro videos, **autosave** (on/off, the minutes typed in, the number of slots), menu key, **stats**: a small window with the active lens and the supersampling
 sizes, also with the menu closed). Below the tabs, **restart game** applies the settings that only take effect
 at start (supersampling, intro videos; the row says when one is waiting): the game is saved as
 `rowe_restart`, started again the way it was started (`nvse_loader.exe`, or a 4GB-patched
@@ -178,6 +179,9 @@ the DLL:
 | `reshadefirst` | With ReShade's **add-on build** ("ReShade with full add-on support") and supersampling: `1` has ReShade render its effects into the supersampled frame before it is averaged down, so they are in the full-size screenshots (and applied at the higher resolution); ReShade then skips its own pass. `0`: ReShade as usual (on the window-sized frame, missing from the mod's full-size screenshots). The standard ReShade build refuses add-ons; nothing changes then. Effects that read the depth buffer may not find it at the supersampled size. | `1` |
 | `stats` | `1` shows a small window with the active lens (mode, the FOV it shows and the FOV rendered for it) and the supersampling sizes, also with the settings menu closed; drag it while the menu is open to move it (`statsx`, `statsy`: its position as fractions of the screen, `-1` = top right) The window is also in the screenshots the screenshot key takes (not the settings menu); at full size its text is the on-screen text magnified, so it looks soft at high supersampling. | `0` |
 | `statssize` | The stats window's text size, 50-200 percent of the menu's | `80` |
+| `autosave` | `1` saves the game every `autosaveminutes` minutes of play as "ROWE Autosave 1", 2, ... in turn. Only time in gameplay counts (not menus, loading screens or the game in the background); when the time is up during combat or with the player dead it waits until that is over; loading, starting or saving a game (your own saves too) starts the count again. Also on the launcher's Mod tab and the MCM page. | `0` |
+| `autosaveminutes` | Minutes of play between autosaves, 1-240. | `10` |
+| `autosaveslots` | How many autosaves are kept, 1-10: the oldest is overwritten (`autosavenext` is the next slot). | `3` |
 
 Notes:
 

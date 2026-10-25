@@ -104,6 +104,15 @@ static float GetF(const char* path)
     return (float)r.num;
 }
 
+float ScriptValue(const char* expression)
+{
+    if (!s_script) return 0.f;
+    Script* s = Snippet(std::string("value ") + expression, std::string("begin function {}\nSetFunctionValue (") + expression + ")\nend\n");
+    ScriptResult r = {};
+    if (!s || !s_script->CallFunction(s, nullptr, nullptr, &r, 0) || r.type != 1) return 0.f;
+    return (float)r.num;
+}
+
 static void SetF(const char* path, float v)
 {
     Script* s = Snippet(std::string("set ") + path, "float v\nbegin function {v}\nSetUIFloat " + Quoted(path) + " v\nend\n");
@@ -136,7 +145,8 @@ static void OptS(int id, const char* trait, const char* s)
 enum { kList = 1, kScale = 2, kCheck = 5 };
 enum {
     kOptFov = 1, kOptFovGame, kOptLens, kOptFisheye, kOptScope, kOptZoom, kOptZoomGame, kOptPipboy, kOptPipboyGame,
-    kOptSupersample, kOptMousetrap, kOptIntros, kOptShotSize, kOptShotFormat, kOptShotQuality, kOptCount
+    kOptSupersample, kOptMousetrap, kOptIntros, kOptShotSize, kOptShotFormat, kOptShotQuality, kOptAutosave,
+    kOptAutosaveMinutes, kOptAutosaveSlots, kOptCount
 };
 
 static const char* kLensNames[kLensModeCount] = {"Off", "Auto", "Panini", "Stereographic", "Fisheye"};
@@ -165,6 +175,9 @@ static const char* Title(int id)
     case kOptShotSize: return "Screenshot size";
     case kOptShotFormat: return "Screenshot format";
     case kOptShotQuality: return "JPEG quality";
+    case kOptAutosave: return "Autosave";
+    case kOptAutosaveMinutes: return "Autosave every (minutes of play)";
+    case kOptAutosaveSlots: return "Autosave slots";
     }
     return "";
 }
@@ -190,6 +203,10 @@ static const char* Help(int id)
     case kOptShotSize: return "Screenshots (F12 by default) at the supersampled size or at the window's.";
     case kOptShotFormat: return "JPEG: about 5x smaller and much faster to write. PNG: lossless.";
     case kOptShotQuality: return "JPEG quality: visually lossless from about 90.";
+    case kOptAutosave: return "Saves the game every so many minutes of play as ROWE Autosave 1, 2, ... in turn. Menus, loading "
+                              "screens and combat are not counted. Any save starts the count again.";
+    case kOptAutosaveMinutes: return "Minutes of play between autosaves.";
+    case kOptAutosaveSlots: return "How many autosaves are kept: the oldest is overwritten.";
     }
     return "";
 }
@@ -253,6 +270,14 @@ static void Fill()
     Opt(kOptShotQuality, "_type", kScale);
     Opt(kOptShotQuality, "_value", (float)g_settings.screenshotQuality);
     Opt(kOptShotQuality, "_enable", g_settings.screenshotJpg ? 1.f : 2.f);
+    Opt(kOptAutosave, "_type", kCheck);
+    Opt(kOptAutosave, "_value", g_settings.autosave);
+    Opt(kOptAutosaveMinutes, "_type", kScale);
+    Opt(kOptAutosaveMinutes, "_value", (float)g_settings.autosaveMinutes);
+    Opt(kOptAutosaveMinutes, "_enable", g_settings.autosave ? 1.f : 2.f);
+    Opt(kOptAutosaveSlots, "_type", kScale);
+    Opt(kOptAutosaveSlots, "_value", (float)g_settings.autosaveSlots);
+    Opt(kOptAutosaveSlots, "_enable", g_settings.autosave ? 1.f : 2.f);
 }
 
 static void FillList(int option)
@@ -299,6 +324,8 @@ static void ShowScale(int option)
     case kOptZoom: lo = kZoomFovMin; hi = kFovMax; v = g_settings.zoomFov > 0 ? g_settings.zoomFov : FovZoomDefault(); break;
     case kOptPipboy: lo = kPipboyFovMin; hi = kPipboyFovMax; v = g_settings.pipboyFov > 0 ? g_settings.pipboyFov : PipboyGameFov(); break;
     case kOptShotQuality: lo = 50; hi = 100; v = (float)g_settings.screenshotQuality; break;
+    case kOptAutosaveMinutes: lo = 1; hi = 240; v = (float)g_settings.autosaveMinutes; break;
+    case kOptAutosaveSlots: lo = 1; hi = 10; v = (float)g_settings.autosaveSlots; break;
     default: return;
     }
     SetF("StartMenu/MCM/_ValueDecimal", 0);
@@ -316,6 +343,8 @@ static float ScaleDefault(int option)
     case kOptZoom: return floorf(FovZoomDefault() + 0.5f);
     case kOptPipboy: return floorf(PipboyGameFov() + 0.5f);
     case kOptShotQuality: return 95;
+    case kOptAutosaveMinutes: return 10;
+    case kOptAutosaveSlots: return 3;
     }
     return 0;
 }
@@ -339,6 +368,12 @@ static void Apply(int option, float v)
     case kOptShotSize: g_settings.screenshotFull = entry == 0; break;
     case kOptShotFormat: g_settings.screenshotJpg = entry == 0; break;
     case kOptShotQuality: g_settings.screenshotQuality = (int)v; break;
+    case kOptAutosave: g_settings.autosave = v != 0; break;
+    case kOptAutosaveMinutes: g_settings.autosaveMinutes = (int)v; break;
+    case kOptAutosaveSlots:
+        g_settings.autosaveSlots = (int)v;
+        if (g_settings.autosaveNext > g_settings.autosaveSlots) g_settings.autosaveNext = 1;
+        break;
     default: return;
     }
     Log("mcm: option %d set to %g", option, v);

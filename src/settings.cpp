@@ -30,6 +30,9 @@
 //   statssize=80     its text size, 50-200 percent of the menu's
 //   statsx=-1        its position (top-left corner) as fractions of the screen, set by dragging it
 //   statsy=-1        with the menu open; -1 = the top right corner
+//   autosave=0       1 saves every autosaveminutes minutes of play (not in menus, loading or combat)
+//   autosaveminutes=10  1-240
+//   autosaveslots=3  the saves "ROWE Autosave 1"..N are used in turn (1-10); autosavenext= the next
 //
 // Section [dev] (testing only, FalloutPrefs.ini is not changed):
 //   fullscreen=0/1   overrides the game's bFull Screen at start; -1 or absent leaves it alone
@@ -113,6 +116,15 @@ void SettingsLoad()
     s.statsX = ReadFloat("statsx", -1);
     s.statsY = ReadFloat("statsy", -1);
     if (s.statsX < 0 || s.statsY < 0 || s.statsX > 1 || s.statsY > 1) s.statsX = s.statsY = -1;
+    s.autosave = ReadFloat("autosave", 0) != 0;
+    s.autosaveMinutes = (int)ReadFloat("autosaveminutes", 10);
+    if (s.autosaveMinutes < 1) s.autosaveMinutes = 1;
+    if (s.autosaveMinutes > 240) s.autosaveMinutes = 240;
+    s.autosaveSlots = (int)ReadFloat("autosaveslots", 3);
+    if (s.autosaveSlots < 1) s.autosaveSlots = 1;
+    if (s.autosaveSlots > 10) s.autosaveSlots = 10;
+    s.autosaveNext = (int)ReadFloat("autosavenext", 1);
+    if (s.autosaveNext < 1 || s.autosaveNext > s.autosaveSlots) s.autosaveNext = 1;
     if (s.screenshotQuality < 1) s.screenshotQuality = 1;
     if (s.screenshotQuality > 100) s.screenshotQuality = 100;
     char path[MAX_PATH];
@@ -170,4 +182,11 @@ void SettingsSave()
     WritePrivateProfileStringA("rowe", "statsx", v, path);
     sprintf(v, "%.4f", g_settings.statsY);
     WritePrivateProfileStringA("rowe", "statsy", v, path);
+    WritePrivateProfileStringA("rowe", "autosave", g_settings.autosave ? "1" : "0", path);
+    sprintf(v, "%d", g_settings.autosaveMinutes);
+    WritePrivateProfileStringA("rowe", "autosaveminutes", v, path);
+    sprintf(v, "%d", g_settings.autosaveSlots);
+    WritePrivateProfileStringA("rowe", "autosaveslots", v, path);
+    sprintf(v, "%d", g_settings.autosaveNext);
+    WritePrivateProfileStringA("rowe", "autosavenext", v, path);
 }

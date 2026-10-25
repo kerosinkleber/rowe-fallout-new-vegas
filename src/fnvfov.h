@@ -60,6 +60,10 @@ struct Settings {
     bool stats = false;                  // the stats window (lens, supersampling), also with the menu closed
     int statsSize = 80;                  // its text size, percent of the menu's
     float statsX = -1, statsY = -1;      // its top-left corner, fraction of the screen; -1 = top right
+    bool autosave = false;               // save every autosaveMinutes minutes of play
+    int autosaveMinutes = 10;            // 1-240
+    int autosaveSlots = 3;               // "ROWE Autosave 1"..N, in turn (1-10)
+    int autosaveNext = 1;                // the slot the next autosave goes to
     int devFullscreen = -1;  // [dev] fullscreen: -1 = the game's own bFull Screen
     int devWidth = 0, devHeight = 0;  // [dev] size: window size for this start, 0 = the game's own
     bool devVatsShrink = true;  // [dev] vatsshrink=0: VATS image space at the game's size (comparison)
@@ -225,4 +229,9 @@ void GameCmdTick();              // once per MainGameLoop
 // mcm.cpp: the settings as a page of The Mod Configuration Menu (with ROWE - MCM.esp; optional).
 void McmInit(void* scriptInterface);  // xNVSE's NVSEScriptInterface (null: no MCM page)
 void McmTick();                       // once per MainGameLoop
+float ScriptValue(const char* expression);  // an xNVSE script expression's value (0 without the script interface)
+// autosave.cpp: saves every N minutes of play into rotating slots.
+void AutosaveTick();                  // once per MainGameLoop
+void AutosaveReset(const char* why);  // a game was loaded, started or saved: count from 0
+void AutosaveWriteState(FILE* f);
 void GameCmdWriteState(FILE* f);

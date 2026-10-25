@@ -602,6 +602,32 @@ static void DrawMenu(int backW, int backH)
                 bool capturing = s_capturingKey && s_captureInto == &g_settings.menuKey;
                 _snprintf(menuBtn, sizeof(menuBtn), capturing ? "press a key...###menukey" : "%s###menukey", menuKey);
                 if (ImGui::Button(menuBtn, ImVec2(-FLT_MIN, 0))) { s_capturingKey = 1; s_captureInto = &g_settings.menuKey; }
+                LabelCell("Autosave", "Saves the game every so many minutes of play (not counting menus, loading "
+                                      "screens or time with the game in the background) as \"ROWE Autosave 1\", 2, ... in turn. "
+                                      "During combat it waits until the fight is over. Any save, your own too, starts the count again.");
+                if (HudCheckbox("every##autosave", &g_settings.autosave)) Changed();
+                ImGui::SameLine();
+                ImGui::BeginDisabled(!g_settings.autosave);
+                float numW = ImGui::CalcTextSize("0000").x + ImGui::GetStyle().FramePadding.x * 2;
+                ImGui::SetNextItemWidth(numW);
+                int minutes = g_settings.autosaveMinutes;
+                if (ImGui::InputInt("##autosavemin", &minutes, 0, 0)) {
+                    g_settings.autosaveMinutes = minutes < 1 ? 1 : minutes > 240 ? 240 : minutes;
+                    Changed();
+                }
+                HudTip("Minutes of play between autosaves, 1-240.");
+                ImGui::SameLine();
+                ImGui::TextUnformatted("min, slots");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(numW);
+                int slots = g_settings.autosaveSlots;
+                if (ImGui::InputInt("##autosaveslots", &slots, 0, 0)) {
+                    g_settings.autosaveSlots = slots < 1 ? 1 : slots > 10 ? 10 : slots;
+                    if (g_settings.autosaveNext > g_settings.autosaveSlots) g_settings.autosaveNext = 1;
+                    Changed();
+                }
+                HudTip("How many autosaves are kept (1-10): the oldest is overwritten.");
+                ImGui::EndDisabled();
                 LabelCell("Stats", "A small window with the active lens (mode, the FOV it shows and renders) and the supersampling "
                                    "size, shown also with this menu closed. Drag it to move it while this menu is open.");
                 if (HudCheckbox("show##stats", &g_settings.stats)) Changed();

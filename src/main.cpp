@@ -75,6 +75,9 @@ static void OnMessage(NVSEMessagingInterface::Message* msg)
         ReconEngineDeferredInit();
         break;
     case NVSEMessagingInterface::kMessage_MainGameLoop: ReconEngineMainLoop(); break;
+    case NVSEMessagingInterface::kMessage_PostLoadGame: AutosaveReset("game loaded"); break;
+    case NVSEMessagingInterface::kMessage_NewGame: AutosaveReset("new game"); break;
+    case NVSEMessagingInterface::kMessage_SaveGame: AutosaveReset("game saved"); break;
     case NVSEMessagingInterface::kMessage_ExitGame:
     case NVSEMessagingInterface::kMessage_ExitGame_Console:
         Log("message: ExitGame%s", msg->type == NVSEMessagingInterface::kMessage_ExitGame_Console ? " (console qqq)" : "");
