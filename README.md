@@ -180,7 +180,7 @@ the DLL:
 | `stats` | `1` shows a small window with the active lens (mode, the FOV it shows and the FOV rendered for it) and the supersampling sizes, also with the settings menu closed; drag it while the menu is open to move it (`statsx`, `statsy`: its position as fractions of the screen, `-1` = top right) The window is also in the screenshots the screenshot key takes (not the settings menu); at full size its text is the on-screen text magnified, so it looks soft at high supersampling. | `0` |
 | `statssize` | The stats window's text size, 50-200 percent of the menu's | `80` |
 | `autosave` | `1` saves the game every `autosaveminutes` minutes of play as "ROWE Autosave 1", 2, ... in turn. Only time in gameplay counts (not menus, loading screens or the game in the background); when the time is up during combat or with the player dead it waits until that is over; loading, starting or saving a game (your own saves too) starts the count again. Also on the launcher's Mod tab and the MCM page. | `0` |
-| `autosaveminutes` | Minutes of play between autosaves, 1-240. | `10` |
+| `autosaveminutes` | Minutes of play between autosaves, 1-240. | `20` |
 | `autosaveslots` | How many autosaves are kept, 1-10: the oldest is overwritten (`autosavenext` is the next slot). | `3` |
 
 Notes:

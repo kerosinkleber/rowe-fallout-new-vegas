@@ -156,7 +156,7 @@ static IniFile g_sizeWhere;
 static int g_menuKey = VK_F8, g_shotKey = VK_F12;
 static std::string g_shotDir;  // ANSI, as in the INI file
 static bool g_autosave;          // rowe.ini autosave / autosaveminutes / autosaveslots (the plugin's autosave)
-static int g_autosaveMin = 10, g_autosaveSlots = 3;
+static int g_autosaveMin = 20, g_autosaveSlots = 3;
 static bool g_slideshow = true;  // [launcher] slideshow: the loading screens behind the launcher
 static int g_slideBright = 50;   // [launcher] slidebrightness: how much of them shows through, percent
 static int g_fontBase = 28;      // [launcher] textsize: the text size in pixels for a kFontRefW x kFontRefH window
@@ -204,7 +204,7 @@ static void Reload()
     GetPrivateProfileStringA("rowe", "screenshotdir", "", dir, sizeof(dir), g_paths.modIni.c_str());
     g_shotDir = dir;
     g_autosave = GetPrivateProfileIntA("rowe", "autosave", 0, g_paths.modIni.c_str()) != 0;
-    g_autosaveMin = (int)GetPrivateProfileIntA("rowe", "autosaveminutes", 10, g_paths.modIni.c_str());
+    g_autosaveMin = (int)GetPrivateProfileIntA("rowe", "autosaveminutes", 20, g_paths.modIni.c_str());
     if (g_autosaveMin < 1) g_autosaveMin = 1;
     if (g_autosaveMin > 240) g_autosaveMin = 240;
     g_autosaveSlots = (int)GetPrivateProfileIntA("rowe", "autosaveslots", 3, g_paths.modIni.c_str());

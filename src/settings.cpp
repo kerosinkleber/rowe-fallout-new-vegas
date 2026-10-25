@@ -31,7 +31,7 @@
 //   statsx=-1        its position (top-left corner) as fractions of the screen, set by dragging it
 //   statsy=-1        with the menu open; -1 = the top right corner
 //   autosave=0       1 saves every autosaveminutes minutes of play (not in menus, loading or combat)
-//   autosaveminutes=10  1-240
+//   autosaveminutes=20  1-240
 //   autosaveslots=3  the saves "ROWE Autosave 1"..N are used in turn (1-10); autosavenext= the next
 //
 // Section [dev] (testing only, FalloutPrefs.ini is not changed):
@@ -117,7 +117,7 @@ void SettingsLoad()
     s.statsY = ReadFloat("statsy", -1);
     if (s.statsX < 0 || s.statsY < 0 || s.statsX > 1 || s.statsY > 1) s.statsX = s.statsY = -1;
     s.autosave = ReadFloat("autosave", 0) != 0;
-    s.autosaveMinutes = (int)ReadFloat("autosaveminutes", 10);
+    s.autosaveMinutes = (int)ReadFloat("autosaveminutes", 20);
     if (s.autosaveMinutes < 1) s.autosaveMinutes = 1;
     if (s.autosaveMinutes > 240) s.autosaveMinutes = 240;
     s.autosaveSlots = (int)ReadFloat("autosaveslots", 3);

@@ -61,7 +61,7 @@ struct Settings {
     int statsSize = 80;                  // its text size, percent of the menu's
     float statsX = -1, statsY = -1;      // its top-left corner, fraction of the screen; -1 = top right
     bool autosave = false;               // save every autosaveMinutes minutes of play
-    int autosaveMinutes = 10;            // 1-240
+    int autosaveMinutes = 20;            // 1-240
     int autosaveSlots = 3;               // "ROWE Autosave 1"..N, in turn (1-10)
     int autosaveNext = 1;                // the slot the next autosave goes to
     int devFullscreen = -1;  // [dev] fullscreen: -1 = the game's own bFull Screen

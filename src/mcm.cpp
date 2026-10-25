@@ -343,7 +343,7 @@ static float ScaleDefault(int option)
     case kOptZoom: return floorf(FovZoomDefault() + 0.5f);
     case kOptPipboy: return floorf(PipboyGameFov() + 0.5f);
     case kOptShotQuality: return 95;
-    case kOptAutosaveMinutes: return 10;
+    case kOptAutosaveMinutes: return 20;
     case kOptAutosaveSlots: return 3;
     }
     return 0;
