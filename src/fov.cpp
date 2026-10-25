@@ -172,7 +172,7 @@ float FovRemapSetter(void* ret, void* sg, float fov)
         if (a == (DWORD)ret) return LensViewmodelFov(PipboyRemap(fov));
     if (!IsWorldSite((DWORD)ret, sg, fov)) return fov;
     float shown = HolsteredZoom(fov);
-    float out = LensRenderFov(shown > 0 ? shown : SliderRemap(fov));
+    float out = LensRenderFov(PhotoZoomFov(shown > 0 ? shown : SliderRemap(fov)));
     s_lastIn = fov;
     s_lastOut = out;
     s_lastWorldFrame = FrameCount();

@@ -215,6 +215,12 @@ static HRESULT STDMETHODCALLTYPE H_GetDeviceState(void* dev, DWORD size, void* d
     }
     if (dev == s_mouse) {
         InterlockedIncrement(&s_stateCalls);
+        // Photo mode zooms with the wheel; the game does not get it (in third person it would move
+        // the camera and switch to the first person).
+        if (PhotoActive() && SUCCEEDED(hr) && data && size >= 3 * sizeof(LONG)) {
+            if (((LONG*)data)[2]) PhotoWheel(((LONG*)data)[2]);
+            ((LONG*)data)[2] = 0;
+        }
         LONG rawX = 0, rawY = 0;
         if (SUCCEEDED(hr) && data && size >= 2 * sizeof(LONG)) {
             rawX = ((LONG*)data)[0];
@@ -265,11 +271,16 @@ static HRESULT STDMETHODCALLTYPE H_GetDeviceData(void* dev, DWORD cb, DIDEVICEOB
     }
     if (dev == s_mouse) {
         InterlockedIncrement(&s_dataCalls);
-        if (s_free && SUCCEEDED(hr) && data && inout && cb >= sizeof(DWORD) * 2) {
+        bool photo = PhotoActive();
+        if ((s_free || photo) && SUCCEEDED(hr) && data && inout && cb >= sizeof(DWORD) * 2) {
             DWORD n = *inout, kept = 0;
             for (DWORD i = 0; i < n; ++i) {
                 DIDEVICEOBJECTDATA* e = (DIDEVICEOBJECTDATA*)((BYTE*)data + i * cb);
-                if (e->dwOfs == DIMOFS_X || e->dwOfs == DIMOFS_Y) continue;
+                if (s_free && (e->dwOfs == DIMOFS_X || e->dwOfs == DIMOFS_Y)) continue;
+                if (photo && e->dwOfs == DIMOFS_Z) {  // the wheel zooms in photo mode (as in GetDeviceState)
+                    if (!(flags & DIGDD_PEEK)) PhotoWheel((LONG)e->dwData);
+                    continue;
+                }
                 if (kept != i) memcpy((BYTE*)data + kept * cb, e, cb);
                 ++kept;
             }

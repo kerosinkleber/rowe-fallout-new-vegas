@@ -19,7 +19,7 @@ A mod for **Fallout: New Vegas** (PC) in the style of
   everywhere.
 - **Intro skip**: clears the intro video settings in memory.
 - **Autosave** every so many minutes of play (you choose the interval), into a few rotating saves.
-- **Photo mode**: fly anywhere, invisible and undetectable, the world loading as you go; Space / Ctrl fly up and down, Shift flies faster.
+- **Photo mode**: fly anywhere, invisible and undetectable, the world loading as you go; Space / Ctrl fly up and down, Shift flies faster, the mouse wheel zooms.
 - **Fullscreen at any size**: fullscreen at a size the monitor has no display mode for (1400x1400,
   say) would stop the game with "failed to initialize renderer"; the mod runs it as a borderless
   window of that size instead, centred on a black background.
@@ -141,7 +141,7 @@ target `powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -F
 |---|---|
 | F8 | Open or close the settings menu (`menukey`) |
 | F12 | Screenshot (key, folder, size and format: in the menu, or the `screenshot...` settings below) |
-| F10 | Photo mode on / off (`photokey`, also with Ctrl / Alt). In photo mode: the movement keys fly you where you look, Space up, Ctrl down; hold Shift to fly `photofast` times faster |
+| F10 | Photo mode on / off (`photokey`, also with Ctrl / Alt). In photo mode: the movement keys fly you where you look, Space up, Ctrl down; hold Shift to fly `photofast` times faster; the mouse wheel zooms (5 degrees to the FOV maximum, back when photo mode ends) |
 
 The settings menu (F8) is used with the mouse (sliders, lists, checkboxes; hover for an
 explanation) or the keyboard (arrows, Enter, Tab). It has four tabs: **View** (FOV, lens, scope

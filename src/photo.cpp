@@ -13,7 +13,8 @@
 // general GetMovementSpeed (0x8A0B10, which only xNVSE asks for the player) are not on that path.
 // The game's Run control (Shift) is off while photo mode is on, or Shift would also switch to
 // walking. Space flies up and Ctrl down (Jump and Sneak are off while it is on): see
-// Hook_SetPosition.
+// Hook_SetPosition. The mouse wheel zooms (dinput.cpp hands it over and keeps it from the game,
+// fov.cpp applies PhotoZoomFov).
 // The shortcut again ends it and puts the player back where photo mode started: there it leaves
 // a marker (PlaceAtMe XMarkerHeading), and the player is moved to it (MoveTo) a moment after the
 // collision is back on (a move while flying is lost). Opening a menu (the pause menu with its
@@ -26,6 +27,7 @@
 // Starts only in gameplay; the console commands run on the game thread.
 #include <windows.h>
 #include <intrin.h>
+#include <math.h>
 #include <stdio.h>
 #include "fnvfov.h"
 
@@ -85,6 +87,43 @@ static void __fastcall Hook_SetPosition(void* pc, void* edx, float* pos)
         return;
     }
     s_setPosition(pc, edx, pos);
+}
+
+// Wheel zoom: the shown world FOV's tan(fov / 2) times s_zoom, which eases (in log, a steady zoom)
+// toward s_zoomTarget; a notch is 15 % closer or further, between 5 degrees and kFovMax. The lens
+// works on the zoomed FOV as on any other. Back to 1 when photo mode ends.
+static const float kPi = 3.14159265f;
+static float s_zoom = 1.f, s_zoomTarget = 1.f;
+static float s_zoomShown = 75.f, s_zoomFov = 75.f;  // the last FOV before / after the zoom
+static LARGE_INTEGER s_zoomLast;
+
+void PhotoWheel(long delta)
+{
+    if (!s_active) return;
+    float base = tanf(s_zoomShown * kPi / 360.f);
+    float lo = tanf(5.f * kPi / 360.f) / base, hi = tanf(kFovMax * kPi / 360.f) / base;
+    float t = s_zoomTarget * powf(0.85f, delta / 120.f);
+    s_zoomTarget = t < lo ? lo : t > hi ? hi : t;
+}
+
+float PhotoZoomFov(float fov)
+{
+    s_zoomShown = fov;
+    if (s_zoom == 1.f) return s_zoomFov = fov;
+    return s_zoomFov = atanf(tanf(fov * kPi / 360.f) * s_zoom) * 360.f / kPi;
+}
+
+static void ZoomEase()
+{
+    LARGE_INTEGER now, freq;
+    QueryPerformanceCounter(&now);
+    QueryPerformanceFrequency(&freq);
+    float dt = s_zoomLast.QuadPart ? (float)(now.QuadPart - s_zoomLast.QuadPart) / (float)freq.QuadPart : 0.f;
+    s_zoomLast = now;
+    float a = dt * 10.f;
+    if (a > 1.f) a = 1.f;
+    s_zoom = expf(logf(s_zoom) + (logf(s_zoomTarget) - logf(s_zoom)) * a);
+    if (fabsf(s_zoom - s_zoomTarget) < 1e-4f) s_zoom = s_zoomTarget;
 }
 
 void PhotoInstall()
@@ -195,6 +234,7 @@ void PhotoExit(const char* why)
     s_active = false;
     s_speedScale = 1.f;
     s_vertical = 0;
+    s_zoom = s_zoomTarget = 1.f;
     float px = s_startX, py = s_startY, pz = s_startZ;
     PlayerPos(&px, &py, &pz);
     SetNoclip(false);
@@ -266,6 +306,7 @@ void PhotoTick()
     int vertical = !front ? 0 : (GetAsyncKeyState(VK_SPACE) & 0x8000) ? 1 : (GetAsyncKeyState(VK_CONTROL) & 0x8000) ? -1 : 0;
     if (vertical != s_vertical) s_lastVertical.QuadPart = 0;  // the first step after a change has no time yet
     s_vertical = vertical;
+    ZoomEase();
 }
 
 void PhotoWriteState(FILE* f)
@@ -278,4 +319,5 @@ void PhotoWriteState(FILE* f)
     fprintf(f, "photo: cell %08lX; noclip %d, marker %p, move back %s (tries %d); speed detours %s, scale %.2f, scaled calls %lu; up/down %d (%s), %lu steps\n",
             CellId(), s_noclip, s_marker, s_backAt ? "pending" : "no", s_backTries, s_walkSpeed && s_runSpeed ? "installed" : "MISSING",
             s_speedScale, s_scaledCalls, s_vertical, s_setPosition ? "installed" : "MISSING", s_verticalCalls);
+    fprintf(f, "photo: zoom %.3f (target %.3f), fov %.1f -> %.1f\n", s_zoom, s_zoomTarget, s_zoomShown, s_zoomFov);
 }

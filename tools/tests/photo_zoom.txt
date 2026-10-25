@@ -1,0 +1,51 @@
+# Photo mode wheel zoom (save "ROWE Photo Test"): the wheel through xNVSE (TapKey 264 up / 265
+# down, the path the game reads) must change photo mode's zoom, and the game must not get it (no
+# camera move or POV switch); then the wheel command (straight to photo mode). Ending photo mode
+# must put the zoom back to 1. Shots on the way. Nothing is saved.
+log photo_zoom: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+waitgameplay 3600
+wait 150
+waitfocus 3600
+wait 120
+log start
+photo
+wait 90
+log normal
+shot
+key 264
+wait 5
+key 264
+wait 5
+key 264
+wait 60
+log after xnvse wheel up
+shot
+key 265
+wait 5
+key 265
+wait 5
+key 265
+wait 5
+key 265
+wait 5
+key 265
+wait 5
+key 265
+wait 60
+log after xnvse wheel down
+shot
+wheel 600
+wait 60
+log after wheel 600
+shot
+wheel -2400
+wait 60
+log after wheel -2400
+shot
+photo
+wait 60
+log done
+wait 300

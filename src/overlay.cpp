@@ -590,7 +590,8 @@ static void DrawMenu(int backW, int backH)
                 ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, labelW);
                 ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch);
                 LabelCell("Photo mode", "You fly, invisible, through walls, and nothing can detect you; the world loads as you go. "
-                                        "Move with the movement keys where you look, Space flies up, Ctrl down, Shift faster. The shortcut ends it "
+                                        "Move with the movement keys where you look, Space flies up, Ctrl down, Shift faster, the mouse wheel "
+                                        "zooms. The shortcut ends it "
                                         "and puts you back where you started; opening a menu ends it too, and Quicksave is off "
                                         "while it is on.");
                 ImGui::BeginDisabled(!PhotoActive() && !InGameplay());
