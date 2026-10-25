@@ -1,0 +1,15 @@
+# Startup loading screen (start with rowe.ini [dev] size=WxH): screenshots while the game boots,
+# then quits at the main menu.
+log ui_boot_loading: boot
+wait 20
+shot
+wait 40
+shot
+wait 40
+shot
+wait 40
+shot
+waitmenu 1013 3600
+wait 60
+shot
+con qqq

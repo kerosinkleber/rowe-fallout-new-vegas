@@ -1,0 +1,9 @@
+# Starts a session for the user: loads Save 15 (at the blackjack table in The Tops) and leaves the
+# game running. Nothing is saved.
+log load_save15: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 60
+log ready

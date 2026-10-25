@@ -1,0 +1,42 @@
+# Interface layout (start with rowe.ini [dev] size=WxH): screenshots of the main menu, the HUD,
+# the console, the pause menu (cursor on a button) and the Pip-Boy. Needs the window in front.
+log ui_layout: boot
+waitmenu 1013 3600
+wait 240
+shot
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+log hud
+shot
+log console
+key grave
+wait 30
+con player.getpos x
+wait 30
+shot
+key grave
+wait 30
+log pause menu
+key esc
+wait 60
+wincursor 600 500
+wait 30
+shot
+key esc
+wait 60
+log pipboy
+key tab
+wait 150
+wincursor 600 500
+wait 30
+shot
+key tab
+wait 90
+con qqq

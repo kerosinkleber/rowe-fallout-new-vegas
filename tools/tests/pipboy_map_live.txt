@@ -1,0 +1,20 @@
+# Opens the Pip-Boy on the world map with the user's save (Save 14, Prospector Saloon: the map was
+# the last Pip-Boy page) and leaves the game running for live commands (map drag measurements with
+# tools/mouse_move.ps1 -Hold and tools/image_shift.py). Nothing is saved. Needs the window in front.
+log pipboy_map_live: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 14   Courier  Prospector Saloon  00 09 02"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+key tab
+wait 200
+log pipboy open
+shot
+log ready

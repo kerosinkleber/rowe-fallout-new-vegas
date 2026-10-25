@@ -1,0 +1,36 @@
+# Pip-Boy cursor with the lens (user's settings, mousetrap 1 = free mouse in menus): moves the
+# Windows cursor to two spots on the Pip-Boy list; the drawn cursor must be there, at its normal
+# size, and the item under it highlighted. Then the pause menu for the normal cursor size.
+# Needs the window in front.
+log pipboy_cursor: boot
+wait 300
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+key tab
+wait 150
+log cursor spot 1
+wincursor 900 480
+wait 40
+shot
+log cursor spot 2
+wincursor 920 560
+wait 40
+shot
+key tab
+wait 90
+log pause menu
+key esc
+wait 90
+wincursor 1200 500
+wait 30
+shot
+key esc
+wait 60
+con qqq

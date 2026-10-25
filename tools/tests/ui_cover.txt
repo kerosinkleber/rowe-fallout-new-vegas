@@ -1,0 +1,30 @@
+# Pause menu and loading screen backdrops (start with rowe.ini [dev] size=WxH): loads the save,
+# screenshots the pause menu, then moves to another cell (coc, nothing is saved) and takes
+# screenshots during its loading screen. Needs the window in front.
+log ui_cover: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 3   Courier  Goodsprings  00 43 57"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+key esc
+wait 90
+shot
+key esc
+wait 60
+con coc GSProspectorSaloonInterior
+wait 30
+shot
+wait 60
+shot
+wait 60
+shot
+waitgameplay 3600
+wait 30
+con qqq

@@ -1,0 +1,14 @@
+# The F8 menu's HUD look next to the HUD (Save 15, The Tops): opens the menu on each tab and waits
+# so the screen can be captured (tools\screen_capture.ps1). Nothing is saved. Needs the window in front.
+log hud_menu: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 60
+overlay open
+wait 30
+log menu open
+wait 3600

@@ -1,0 +1,24 @@
+# Scope view (start with rowe.ini [dev] size=WxH): loads the save with the Sniper Rifle, equips
+# it, aims, takes a screenshot and logs the HUD's scene nodes. Needs the window in front.
+log ui_scope: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE sniper rifle"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+con player.equipitem 00004353
+wait 150
+keydown rmb
+wait 120
+shot
+wait 30
+wait 10
+keyup rmb
+wait 30
+con qqq

@@ -1,0 +1,22 @@
+# Exclusive fullscreen with supersampling and an alt-tab (start with rowe.ini supersample=4 and
+# [dev] fullscreen=1; run tools/focus_game.ps1 when the log shows "fs: alt-tab now", which
+# minimises and restores the window: device lost and Reset). Ends with supersample=1.
+log fs: boot
+wait 300
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 120
+set fov 110
+wait 30
+shot
+log fs: alt-tab now
+wait 600
+ifmenu 1013 key esc
+wait 90
+log fs: after alt-tab
+shot
+shotscene
+set fov 0
+set supersample 1
+wait 10
+con qqq

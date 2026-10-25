@@ -1,0 +1,17 @@
+# Compatibility smoke test with other mods installed: FOV + lens in gameplay, a frame trace, and
+# screenshots. Check rowe_state.txt's "patches" and "stamps" sections and the lens line.
+log compat: boot
+wait 300
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 120
+shot
+set fov 110
+wait 30
+shot
+shotscene
+trace
+wait 30
+set fov 0
+wait 10
+con qqq

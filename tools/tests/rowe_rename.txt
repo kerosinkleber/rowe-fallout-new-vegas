@@ -1,0 +1,12 @@
+# The rename to ROWE: loads Save 15 and opens the settings menu (title ROWE SETTINGS) so the screen
+# can be captured. Nothing is saved.
+log rowe_rename: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 120
+overlay open
+wait 30
+log menu open
+wait 3600

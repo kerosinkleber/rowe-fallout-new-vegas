@@ -1,0 +1,32 @@
+# Lens off in terminals, with the user's save in front of a terminal (Save 13, Prospector
+# Saloon): shots before, with the terminal open (menu 1057: rowe_state.txt should show "lens
+# skip reason: terminal open") and after. The terminal is left with the console's closeallmenus
+# (Tab, the right mouse button and Esc sent as keys do not close it; Esc opens the pause menu).
+# Uses rowe.ini as written by the run helper. Nothing is saved. Needs the window in front.
+log terminal_lens: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 13   Courier  Prospector Saloon  00 08 37"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+log before terminal
+shot
+key e
+wait 150
+log terminal open
+shot
+con closeallmenus
+wait 60
+ifmenu 1057 log terminal still open
+ifnomenu 1057 log terminal closed
+wait 60
+log after terminal
+shot
+wait 30
+con qqq

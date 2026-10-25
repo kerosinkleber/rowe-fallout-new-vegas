@@ -1,0 +1,54 @@
+# Phases 1, 3, 4: settings menu screenshot, then FOV and lens settings from one spot in gameplay.
+# Every shot has a state snapshot (.txt) of the same frame. Ends with the defaults (fov 0, lens 1).
+log fov_lens: boot
+wait 300
+overlay open
+wait 3
+shotmenu
+overlay close
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 150
+log vanilla
+set fov 0
+set lens 0
+wait 20
+shot
+log fov 110 rectilinear
+set fov 110
+wait 20
+shot
+log fov 110 auto
+set lens 1
+wait 20
+shot
+shotscene
+log fov 110 panini
+set lens 2
+wait 20
+shot
+log fov 150 auto
+set fov 150
+set lens 1
+wait 20
+shot
+log fov 150 auto, aiming
+keydown lalt
+wait 60
+shot
+keyup lalt
+wait 60
+log fov 150 stereographic
+set lens 3
+wait 20
+shot
+overlay open
+wait 3
+shotmenu
+overlay close
+fovtrace 120
+wait 130
+set fov 0
+set lens 1
+wait 10
+con qqq

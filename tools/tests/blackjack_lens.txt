@@ -1,0 +1,36 @@
+# Lens off at the casino games, with the user's save at the blackjack table in The Tops (Save 15):
+# shots before, with blackjack open (menu 1081; rowe_state.txt should show "lens skip reason:
+# terminal or casino game open") and after leaving it with R (Exit). Uses rowe.ini as written by
+# the run helper. Nothing is saved. Needs the window in front.
+log blackjack_lens: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+log before blackjack
+shot
+keydown e
+wait 10
+keyup e
+wait 200
+ifnomenu 1081 log blackjack did not open
+log blackjack open
+shot
+keydown r
+wait 10
+keyup r
+wait 120
+ifmenu 1081 log blackjack still open
+ifmenu 1081 con closeallmenus
+wait 60
+log after blackjack
+shot
+wait 30
+con qqq

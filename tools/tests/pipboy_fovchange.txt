@@ -1,0 +1,34 @@
+# Pip-Boy size when the FOV changes while the Pip-Boy is out (Save 15, The Tops, user's lens):
+# A opened at FOV 110, B after setting 150 while it is out, C put away and taken out again at 150.
+# A, B and C should show the Pip-Boy at the same size. Then the F8 menu opens for the take out /
+# put away button. Changes fov in rowe.ini: restore it afterwards. Nothing is saved.
+log pipboy_fovchange: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 60
+set fov 110
+wait 30
+key tab
+wait 200
+log A open at 110
+shot
+set fov 150
+wait 60
+log B set 150 while open
+shot
+key tab
+wait 150
+key tab
+wait 200
+log C reopened at 150
+shot
+key tab
+wait 150
+overlay open
+wait 30
+log menu open
+wait 3600

@@ -1,0 +1,76 @@
+# Three-face lens: water when looking up (the user's report). Test save "fnvfov water test",
+# facing 22 degrees (north-north-east, over the lake) and 30 degrees up: Panini 220 (three views;
+# then with facescull 0), Panini 160 with faces 0 (one tall view, warped and not), lens off at FOV
+# 100, 160 and 130 (the game's own render), and three views looking level. A frame trace of the
+# three-view frame (water updates with their reflection renders) and of the one-view frame. AI off, no
+# detection, every creature around killed, health restored. Changes fov and lens in rowe.ini:
+# restore it afterwards. Nothing is saved. Needs the window in front.
+log faces water up: boot
+waitmenu 1013 3600
+wait 60
+con load "fnvfov water test"
+wait 30
+waitnomenu 1007 3600
+waitgameplay 3600
+wait 30
+con tai
+con tdetect
+actors 20000 disable
+con killall
+con tgm
+con player.restoreav health 9999
+waitfocus 3600
+wait 120
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+con set gamehour to 12
+con player.setangle z 22
+con player.setangle x -30
+set lens 2
+set fov 220
+wait 120
+log three views (views and water updates culled without kept results, water updates forced)
+shot
+trace
+wait 5
+log three views culled as the engine does (facescull 0: kept results; the water breaks)
+set facescull 0
+wait 30
+shot
+set facescull 4
+set faces 0
+set fov 160
+wait 60
+log one tall view
+shot
+trace
+wait 5
+set lenswarp 0
+wait 30
+log one tall view, not warped (the raw render)
+shot
+set lenswarp 1
+set lens 0
+set fov 100
+wait 60
+log one normal view
+shot
+set fov 160
+wait 60
+log one wide view, lens off (as the game renders FOV 160)
+shot
+set fov 130
+wait 60
+log lens off, FOV 130
+shot
+set faces 1
+set lens 2
+set fov 220
+con player.setangle x 0
+wait 60
+log three views, level
+shot
+wait 10
+con qqq

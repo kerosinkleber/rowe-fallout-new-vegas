@@ -1,0 +1,45 @@
+# Three-face lens (src/faces.cpp) with the user's test save (Save 9): Panini at FOV 160 (one view),
+# 190 and 220 (three views), a shot with the side views tinted (seams), and a frame trace at 220.
+# Changes fov and lens in rowe.ini: restore it afterwards. Nothing is saved. Needs the window in
+# front.
+log faces lens: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 9   Courier  Goodsprings  00 06 48"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+con tgm
+set lens 2
+set fov 160
+wait 60
+shot
+set fov 190
+wait 60
+shot
+set fov 220
+wait 60
+shot
+set facestint 1
+wait 30
+shot
+set facestint 0
+wait 30
+trace constants
+wait 5
+log timing 220 start
+wait 300
+log timing 220 end
+trace
+wait 5
+set fov 160
+wait 30
+log timing 160 start
+wait 300
+log timing 160 end
+con qqq

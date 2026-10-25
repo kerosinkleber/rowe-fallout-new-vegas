@@ -1,0 +1,37 @@
+# Scope zoom-in, frame by frame (start with rowe.ini [dev] size=WxH): loads the save, equips the
+# Sniper Rifle, aims and takes screenshots (with state) during the zoom. Needs the window in front.
+log ui_scope_zoom: boot
+waitmenu 1013 3600
+wait 60
+con load "fnvfov before scope lens test"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+con player.equipitem 00004353
+wait 150
+shot
+keydown rmb
+wait 1
+shot
+wait 2
+shot
+wait 3
+shot
+wait 4
+shot
+wait 5
+shot
+wait 8
+shot
+wait 15
+shot
+wait 30
+shot
+keyup rmb
+wait 30
+con qqq

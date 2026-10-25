@@ -1,0 +1,43 @@
+# Fisheye lens (lens 4) with the user's save in The Tops (Save 15): shots at FOV 160 and 120, the
+# stereographic lens at 140 for comparison, the fisheye with the Pip-Boy open and the F8 menu.
+# Changes fov and lens in rowe.ini: restore it afterwards. Nothing is saved. Needs the window in front.
+log fisheye: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+set lens 4
+set fov 160
+wait 60
+log fisheye 160
+shot
+set fov 120
+wait 60
+log fisheye 120
+shot
+set lens 3
+set fov 140
+wait 60
+log stereo 140
+shot
+set lens 4
+set fov 160
+key tab
+wait 200
+log fisheye 160 pipboy
+shot
+key tab
+wait 90
+overlay open
+wait 20
+shotmenu
+overlay close
+wait 30
+con qqq

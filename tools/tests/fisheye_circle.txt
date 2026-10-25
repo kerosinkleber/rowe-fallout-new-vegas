@@ -1,0 +1,33 @@
+# Fisheye fill vs full circle (Save 15, The Tops), at FOV 140 and 160, plus the Pip-Boy and the F8
+# menu in full-circle mode. Changes lens, fov and fisheyecircle in rowe.ini: restore it afterwards.
+# Nothing is saved.
+log fisheye_circle: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 120
+set lens 4
+set fov 140
+set fisheyecircle 0
+wait 60
+log fill 140
+shot
+set fisheyecircle 1
+wait 60
+log circle 140
+shot
+set fov 160
+wait 60
+log circle 160
+shot
+key tab
+wait 200
+log circle 160 pipboy
+shot
+key tab
+wait 120
+overlay open
+wait 30
+log menu open
+wait 3600

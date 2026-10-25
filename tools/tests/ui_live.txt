@@ -1,0 +1,15 @@
+# Loads the save named in the first con line and leaves the game running in gameplay, for
+# commands sent one by one. Needs the window in front.
+log ui_live: boot
+waitmenu 1013 3600
+wait 60
+con load "fnvfov before scope lens test"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+log ready

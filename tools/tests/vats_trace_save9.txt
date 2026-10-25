@@ -1,0 +1,41 @@
+# VATS performance with the user's test save (Save 9, a targetable NPC in view; start with
+# rowe.ini [dev] size=WxH and the supersampling to test): god mode, draws the weapon, traces a
+# normal frame and a VATS frame (rowe_trace.txt), takes a screenshot in VATS. Nothing is saved.
+# Needs the window in front.
+log vats_trace: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 9   Courier  Goodsprings  00 06 48"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+con tgm
+key r
+wait 120
+shot
+log normal frame
+trace
+wait 30
+wait 60
+log find a vats target
+key v
+wait 90
+log enter vats
+ifmenu 1056 log vats open
+wait 300
+log vats frame
+trace
+wait 30
+shot
+wait 30
+key v
+wait 200
+log after vats
+trace
+wait 30
+con qqq

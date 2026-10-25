@@ -1,0 +1,35 @@
+# Pip-Boy, then the pause menu on top of it (Esc): with the pause menu up the frame must be warped
+# before the UI (menu straight), with the Pip-Boy screen active after the UI (cursor cut out and
+# drawn unwarped). Needs the window in front.
+log pipboy_pause: boot
+wait 300
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+key tab
+wait 150
+wincursor 900 480
+wait 30
+log pipboy screen
+shot
+log pause menu over the pipboy
+key esc
+wait 90
+wincursor 1200 500
+wait 30
+shot
+key esc
+wait 90
+log pipboy again
+wincursor 920 560
+wait 30
+shot
+key tab
+wait 90
+con qqq

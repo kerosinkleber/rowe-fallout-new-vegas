@@ -1,0 +1,41 @@
+# Three-view lens: cost of forcing the views' water reflections (faceswaterforce 1) against testing
+# each water against the view (default), in Goodsprings (Save 9; a small pond in the loaded cells).
+# Four frame traces each, Panini 220. Changes fov and lens in rowe.ini: restore it afterwards.
+# Nothing is saved. Needs the window in front.
+log faces perf water: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 9   Courier  Goodsprings  00 06 48"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+con tgm
+set lens 2
+set fov 220
+wait 120
+log tested
+trace
+wait 20
+trace
+wait 20
+trace
+wait 20
+trace
+wait 20
+set faceswaterforce 1
+wait 60
+log forced
+trace
+wait 20
+trace
+wait 20
+trace
+wait 20
+trace
+wait 20
+con qqq

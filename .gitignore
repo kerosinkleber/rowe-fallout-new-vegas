@@ -1,0 +1,36 @@
+# Build output and release archives
+out/
+dist/
+
+# Files the mod writes next to itself when run from this folder
+rowe.ini
+rowe.log
+rowe.log.*
+rowe_*.png
+rowe_*.jpg
+rowe_*.bmp
+rowe_state.txt
+rowe_state.tmp
+rowe_cmd.txt
+rowe_restart.txt
+rowe_trace.txt
+rowe_fovtrace.csv
+*.req
+
+# Editor and Visual Studio files
+.vs/
+*.user
+*.suo
+__pycache__/
+
+# Local working files: backups of the INIs and saves taken before test runs, archived test runs,
+# screenshots, research notes, the test log and the notes for the coding assistant
+backups/
+runs/
+screenshots/
+reports/
+research_notes/
+TESTLOG.md
+TESTING.md
+CLAUDE.md
+.claude/

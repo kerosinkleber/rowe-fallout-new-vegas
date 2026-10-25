@@ -1,0 +1,43 @@
+# VATS look with the user's test save (Save 9) at the game's own FOV, lens off, for comparing with
+# tools/vanilla_shot.ps1 -Keys 2F (start with rowe.ini [dev] size=WxH and the supersampling to
+# test). Changes the fov and lens settings in rowe.ini: restore it afterwards. Nothing is saved.
+# Needs the window in front.
+log vats_trace: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 9   Courier  Goodsprings  00 06 48"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+con tgm
+set fov 0
+set lens 0
+key r
+wait 120
+shot
+log normal frame
+trace
+wait 30
+wait 60
+log find a vats target
+key v
+wait 90
+log enter vats
+ifmenu 1056 log vats open
+wait 300
+log vats frame
+trace
+wait 30
+shot
+wait 30
+key v
+wait 200
+log after vats
+trace
+wait 30
+con qqq

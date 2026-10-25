@@ -1,0 +1,18 @@
+# Menu cursor units: at the main menu, puts the game's cursor at three positions with a screenshot
+# each (the state snapshots have the cursor values), then quits.
+log cursor: boot
+wait 900
+shot
+cursor 100 100
+wait 3
+shot
+cursor 960 540
+wait 3
+shot
+cursor 1800 1000
+wait 3
+shot
+cursor -500 300
+wait 3
+shot
+con qqq

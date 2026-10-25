@@ -1,0 +1,55 @@
+# Three-face lens, water reflection in the side views with asymmetric (default) and symmetric
+# frusta (facessymmetric 1), test save "fnvfov water test", Panini 220, facing 0 and 270 degrees.
+# Then at 270 every water update advancing the clock (faceswaterpause 0), and the front view's
+# reflection only (faceswater 0). AI off, no detection, the creatures around disabled and health restored once the load is complete. Changes fov and lens in
+# rowe.ini: restore it afterwards. Nothing is saved. Needs the window in front.
+log faces water sym: boot
+waitmenu 1013 3600
+wait 60
+con load "fnvfov water test"
+wait 30
+waitnomenu 1007 3600
+waitgameplay 3600
+wait 30
+con tai
+con tdetect
+actors 20000 disable
+con killall
+con tgm
+con player.restoreav health 9999
+waitfocus 3600
+wait 120
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+set lens 2
+set fov 220
+con set gamehour to 12
+wait 120
+con player.setangle z 0
+con player.setangle x 0
+wait 30
+shot
+set facessymmetric 1
+wait 30
+shot
+set facessymmetric 0
+con player.setangle z 270
+con player.setangle x 0
+wait 30
+shot
+set facessymmetric 1
+wait 30
+shot
+set facessymmetric 0
+set faceswaterpause 0
+wait 30
+shot
+set faceswaterpause 1
+set faceswater 0
+wait 30
+shot
+set faceswater 1
+wait 30
+con qqq

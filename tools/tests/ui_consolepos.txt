@@ -1,0 +1,37 @@
+# Console position probe: opens the console at several text positions (consolepos x y) and takes
+# a screenshot of each. Needs the window in front.
+log ui_consolepos: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+key grave
+wait 30
+con player.getpos x
+wait 10
+consolepos 30 940
+con player.getpos y
+wait 10
+shot
+consolepos 300 500
+con player.getpos y
+wait 10
+shot
+consolepos 640 300
+con player.getpos y
+wait 10
+shot
+consolepos 900 100
+con player.getpos y
+wait 10
+shot
+key grave
+wait 30
+con qqq

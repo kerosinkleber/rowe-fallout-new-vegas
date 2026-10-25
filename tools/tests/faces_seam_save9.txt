@@ -1,0 +1,32 @@
+# Three-face lens seams (src/faces.cpp) with the user's test save (Save 9): Panini at FOV 220,
+# shots with the side views drawn without the sun (default) and with it (facessun 1), and the
+# scene's alpha (facestint 2).
+# Changes fov and lens in rowe.ini: restore it afterwards. Nothing is saved. Needs the window in
+# front.
+log faces seam: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 9   Courier  Goodsprings  00 06 48"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+con tgm
+set lens 2
+set fov 220
+wait 60
+shot
+set facessun 1
+wait 30
+shot
+set facessun 0
+set facestint 2
+wait 30
+shot
+set facestint 0
+wait 10
+con qqq

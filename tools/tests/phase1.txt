@@ -1,0 +1,24 @@
+# Phase 1: device hooks, screenshots and the settings overlay. Takes screenshots at the main
+# menu and in gameplay (with and without the overlay, and the scene before the HUD), then quits.
+log phase1: boot
+wait 300
+shot
+overlay open
+wait 5
+shot
+wait 5
+shot
+overlay close
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 120
+log phase1: gameplay
+shot
+shotscene
+overlay open
+wait 5
+shot
+overlay close
+trace
+wait 60
+con qqq

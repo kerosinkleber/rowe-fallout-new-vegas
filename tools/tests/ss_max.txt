@@ -1,0 +1,12 @@
+# High supersampling smoke test (set rowe.ini supersample and [dev] size before the start):
+# loads the save, takes a screenshot in gameplay and quits. Check the log for render target sizes
+# and failures.
+log ss_max: boot
+waitmenu 1013 3600
+wait 120
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 120
+shot
+wait 60
+con qqq

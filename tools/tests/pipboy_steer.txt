@@ -1,0 +1,15 @@
+# Free mouse (mousetrap 1) on the Pip-Boy: opens the Pip-Boy (Save 15) and waits, so the mouse can
+# be moved (tools\mouse_move.ps1) and the steering trace read in rowe.log. Start with the size,
+# supersampling and lens to test in rowe.ini. Nothing is saved.
+log pipboy_steer: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 30
+key tab
+wait 200
+log pipboy open
+wait 3600

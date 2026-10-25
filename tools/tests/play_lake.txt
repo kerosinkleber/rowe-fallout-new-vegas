@@ -1,0 +1,24 @@
+# Starts the game for the user at Lake Mead: loads the test save "fnvfov water test" (Boulder
+# Beach Campground) with the user's own settings, disables the enemies placed there (five
+# Lakelurks 00168C95-99, two vicious dogs 0017716C/D; the NCR Rangers of Ranger Station Alpha
+# stay), restores health, and leaves the game running. Nothing is saved.
+log play lake: boot
+waitmenu 1013 3600
+wait 60
+con load "fnvfov water test"
+wait 30
+waitnomenu 1007 3600
+waitgameplay 3600
+wait 10
+con 00168C95.disable
+con 00168C96.disable
+con 00168C97.disable
+con 00168C98.disable
+con 00168C99.disable
+con 0017716C.disable
+con 0017716D.disable
+con player.restoreav health 9999
+log enemies disabled
+waitfocus 3600
+wait 60
+ifmenu 1013 key esc

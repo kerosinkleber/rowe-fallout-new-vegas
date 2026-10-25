@@ -1,0 +1,34 @@
+# Fisheye full circle with a mild zoom (zoomfov 110): the circle grows past the screen while aiming.
+# circle must grow with the picture and leave the screen. Changes lens, fov and fisheyecircle in
+# rowe.ini: restore it afterwards. Nothing is saved. Needs the window in front.
+log fisheye_circle_zoom: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 60
+set lens 4
+set fov 140
+set fisheyecircle 1
+set zoomfov 110
+wait 60
+log circle 140 unzoomed
+shot
+keydown rmb
+wait 8
+log zooming 1
+shot
+wait 12
+log zooming 2
+shot
+wait 60
+log zoomed
+shot
+keyup rmb
+wait 60
+log back
+shot
+wait 30
+con qqq

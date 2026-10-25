@@ -1,0 +1,40 @@
+# Pip-Boy and pause menu with the lens (user's settings): screenshots with the Pip-Boy at the
+# default Pip-Boy FOV and at 35, and of the pause menu. Needs the window in front. Ends with
+# pipboyfov 0.
+log pipboy: boot
+wait 300
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+# Bringing the window to the front opens the pause menu a little later; close it.
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+log gameplay shot
+shot
+set pipboyfov 0
+log open pipboy (default pipboy fov)
+key tab
+wait 150
+shot
+trace
+key tab
+wait 120
+set pipboyfov 35
+log open pipboy (pipboy fov 35)
+key tab
+wait 150
+shot
+key tab
+wait 120
+log pause menu
+key esc
+wait 90
+shot
+key esc
+wait 60
+set pipboyfov 0
+con qqq

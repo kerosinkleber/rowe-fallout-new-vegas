@@ -1,0 +1,91 @@
+# Three-face lens with water and refraction (src/faces.cpp): the test save "fnvfov water test"
+# (Boulder Beach Campground on Lake Mead; made by water_save_setup.txt). All AI off and no
+# detection right after loading (the Lakelurks there attack otherwise); health reset. The nearby
+# creatures later get the Stealth Boy's effect (refraction) and are turned into each side view. Panini at FOV 220; the player turned to 0/90/180/270
+# degrees; at each, a shot with the water reflection per view and one with faceswater 0 (front
+# view only, as first built). Then the lurker with the Stealth Boy shimmer in a side view, with and
+# without facesrefraction (actors <dist> <line> runs a console line on each creature). The state file counts the water parameter updates per frame.
+# Changes fov and lens in rowe.ini: restore it afterwards. Nothing is saved. Needs the window in
+# front.
+log faces water: boot
+waitmenu 1013 3600
+wait 60
+con load "fnvfov water test"
+waitgameplay 3600
+wait 30
+con tai
+con tdetect
+actors 20000 disable
+con killall
+con tgm
+con player.resethealth
+wait 90
+waitfocus 3600
+wait 120
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+set lens 2
+set fov 220
+con set gamehour to 12
+wait 120
+log angle 0
+con player.setangle z 0
+con player.setangle x 0
+wait 30
+shot
+set faceswater 0
+wait 20
+shot
+set faceswater 1
+log angle 90
+con player.setangle z 90
+con player.setangle x 0
+wait 30
+shot
+set faceswater 0
+wait 20
+shot
+set faceswater 1
+log angle 180
+con player.setangle z 180
+con player.setangle x 0
+wait 30
+shot
+set faceswater 0
+wait 20
+shot
+set faceswater 1
+log angle 270
+con player.setangle z 270
+con player.setangle x 0
+wait 30
+shot
+set faceswater 0
+wait 20
+shot
+set faceswater 1
+log stealth: the Stealth Boy effect on every creature nearby; they are near the front at 270
+actors 5000 cios 0007E474
+wait 60
+log stealth in the left view
+con player.setangle z 345
+con player.setangle x 0
+wait 30
+shot
+set facesrefraction 0
+wait 20
+shot
+set facesrefraction 1
+log stealth in the right view
+con player.setangle z 195
+con player.setangle x 0
+wait 30
+shot
+set facesrefraction 0
+wait 20
+shot
+set facesrefraction 1
+wait 30
+con qqq

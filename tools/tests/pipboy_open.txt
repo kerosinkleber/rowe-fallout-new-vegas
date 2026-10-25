@@ -1,0 +1,27 @@
+# Opening and closing the Pip-Boy with the free mouse (mousetrap 1) and the lens: the log's
+# "switch trace" lines show the Pip-Boy state, the player's view angles and the mouse movement
+# the game reads on every frame around the switch. Needs the window in front.
+log pipboy_open: boot
+wait 300
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 120
+log open pipboy
+key tab
+wait 8
+log move cursor while opening
+wincursor 1500 300
+wait 140
+log move cursor while open
+wincursor 400 800
+wait 60
+log close pipboy
+key tab
+wait 150
+con qqq

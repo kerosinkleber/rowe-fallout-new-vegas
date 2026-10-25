@@ -1,0 +1,23 @@
+# Pip-Boy world map (Data tab) with the user's save in front of a terminal (Save 13, Prospector
+# Saloon): one shot with the Pip-Boy open (the map must fill the screen between the header and the
+# tabs at any aspect), then a 200-count mouse move is up to the runner (tools/mouse_move.ps1).
+# Uses rowe.ini as written by the run helper. Nothing is saved. Needs the window in front.
+log pipboy_map: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 13   Courier  Prospector Saloon  00 08 37"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+key tab
+wait 200
+log pipboy open
+shot
+key tab
+wait 60
+con qqq

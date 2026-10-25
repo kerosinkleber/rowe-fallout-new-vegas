@@ -1,0 +1,17 @@
+# Mouse trap mode 1 at the main menu (a menu): the mouse is free and the game cursor follows the
+# Windows cursor. Needs the window in front (tools/focus_game.ps1 when the log waits for focus).
+log mouse_free: boot
+wait 900
+set mousetrap 1
+waitfocus 3600
+wait 60
+wincursor 300 200
+wait 30
+shot
+wincursor 1600 900
+wait 30
+shot
+wincursor 960 540
+wait 30
+shot
+con qqq

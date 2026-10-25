@@ -1,0 +1,31 @@
+# Pause menu frame trace (after the look screenshots) with the user's test save (Save 9) at the game's own FOV, lens off, for comparing
+# with tools/vanilla_shot.ps1 -Keys 01 (start with rowe.ini [dev] size=WxH). Changes the fov and
+# lens settings in rowe.ini: restore it afterwards. Nothing is saved. Needs the window in front.
+log pause_look: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 9   Courier  Goodsprings  00 06 48"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+set fov 0
+set lens 0
+wait 60
+shot
+wait 10
+trace constants
+key esc
+wait 1
+trace constants
+wait 1
+trace constants
+wait 150
+shot
+key esc
+wait 30
+con qqq

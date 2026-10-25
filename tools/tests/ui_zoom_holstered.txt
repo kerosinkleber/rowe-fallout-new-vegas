@@ -1,0 +1,32 @@
+# Zoom with the weapon holstered (start with rowe.ini [dev] size=WxH): loads the save, holsters
+# (holds R), aims (right mouse) and takes screenshots (with state) during the zoom. Put `set`
+# lines before the aim to try settings. Needs the window in front.
+log ui_zoom_holstered: boot
+waitmenu 1013 3600
+wait 60
+con load "fnvfov before scope lens test"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+keydown r
+wait 60
+keyup r
+wait 90
+shot
+keydown rmb
+wait 5
+shot
+wait 10
+shot
+wait 20
+shot
+wait 40
+shot
+keyup rmb
+wait 30
+con qqq

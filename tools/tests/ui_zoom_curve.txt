@@ -1,0 +1,61 @@
+# Zoom curve with the weapon holstered (the save must have it holstered) (lens off, zoomfov 20, a screenshot every 3 frames), then
+# the drawn weapon's scope for comparison.
+# Zoom with the weapon holstered (start with rowe.ini [dev] size=WxH): loads the save, holsters
+# (holds R), aims (right mouse) and takes screenshots (with state) during the zoom. Put `set`
+# lines before the aim to try settings. Needs the window in front.
+log ui_zoom_holstered: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE before zoom curve test"
+waitgameplay 3600
+wait 120
+waitfocus 3600
+wait 150
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+set lens 0
+set zoomfov 20
+shot
+keydown rmb
+wait 3
+shot
+wait 3
+shot
+wait 3
+shot
+wait 3
+shot
+wait 3
+shot
+wait 3
+shot
+wait 3
+shot
+wait 3
+shot
+wait 3
+shot
+wait 3
+shot
+wait 3
+shot
+wait 3
+shot
+wait 3
+shot
+wait 3
+shot
+wait 30
+shot
+keyup rmb
+wait 30
+key r
+wait 120
+keydown rmb
+wait 60
+shot
+keyup rmb
+wait 30
+con qqq

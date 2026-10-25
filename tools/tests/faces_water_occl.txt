@@ -1,0 +1,39 @@
+# Three-face lens: missing cells (terrain, water) in the side views. Test save "fnvfov water test",
+# Panini 220, facing 270: side views culled without saving multibound results (default), then
+# then the side views culled with mode 3 (ignore multibounds). ToggleLODLand removes the purple band
+# at the far water (run fcull6). (ToggleOcclusion made no difference.)
+# AI off, no detection, every creature around killed (killall), health restored. Changes fov and lens in
+# rowe.ini: restore it afterwards. Nothing is saved. Needs the window in front.
+log faces water occlusion: boot
+waitmenu 1013 3600
+wait 60
+con load "fnvfov water test"
+wait 30
+waitnomenu 1007 3600
+waitgameplay 3600
+wait 30
+con tai
+con tdetect
+actors 20000 disable
+con killall
+con tgm
+con player.restoreav health 9999
+waitfocus 3600
+wait 120
+ifmenu 1013 key esc
+wait 90
+ifmenu 1013 key esc
+wait 90
+set lens 2
+set fov 220
+con set gamehour to 12
+con player.setangle z 270
+con player.setangle x 0
+wait 120
+shot
+set facescull 3
+wait 30
+shot
+set facescull 4
+wait 10
+con qqq

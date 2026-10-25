@@ -1,0 +1,28 @@
+# Fisheye full circle at FOV 160, 140, 120 and 100 (Save 15, The Tops): the circle fits the shorter
+# side at 160 and grows past the screen at lower FOVs. Changes lens, fov and fisheyecircle in
+# rowe.ini: restore it afterwards. Nothing is saved.
+log fisheye_circle_fov: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 120
+set lens 4
+set fisheyecircle 1
+set fov 160
+wait 60
+log circle 160
+shot
+set fov 140
+wait 60
+log circle 140
+shot
+set fov 120
+wait 60
+log circle 120
+shot
+set fov 100
+wait 60
+log circle 100
+shot
+con qqq

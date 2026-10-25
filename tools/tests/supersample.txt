@@ -1,0 +1,36 @@
+# Phase 5 (start with rowe.ini supersample=4): window stays native, the frame is rendered at the
+# virtual size and averaged down. Also the lens and the settings menu on top, and the mouse trap.
+# Ends with supersample=1 (next start) and fov 0.
+log supersample: boot
+wait 300
+shot
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 150
+log supersample: gameplay
+shot
+shotscene
+log fov 110 auto with supersampling
+set fov 110
+wait 20
+shot
+log aim
+key r
+wait 90
+keydown lalt
+wait 60
+shot
+keyup lalt
+wait 60
+log mouse trap gameplay
+set mousetrap 1
+wait 30
+overlay open
+wait 3
+shotmenu
+overlay close
+set mousetrap 0
+set fov 0
+set supersample 1
+wait 10
+con qqq

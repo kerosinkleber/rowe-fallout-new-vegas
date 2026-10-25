@@ -1,0 +1,45 @@
+# Phase 0 FOV recon: loads a save, records the FOV setter while aiming, switching POV, opening
+# the Pip-Boy and VATS, then quits without saving. Copy to <Plugins>\rowe_cmd.txt before launch.
+log fov_recon: boot
+wait 300
+con load "Save 1   Courier  Goodsprings  00 06 11"
+waitgameplay 3600
+wait 120
+# waitfocus (not used: keyboard input works in the background, bBackground Keyboard=1)
+wait 60
+log fov_recon: in gameplay
+fovtrace 1600
+trace
+wait 60
+log ready weapon (R; reloads instead if already drawn)
+key r
+wait 120
+log aim (hip -> sights, Left Alt = Block/Aim keyboard bind)
+keydown lalt
+wait 120
+keyup lalt
+wait 90
+log third person
+key f
+wait 120
+log aim in third person
+keydown lalt
+wait 120
+keyup lalt
+wait 90
+log back to first person
+key f
+wait 90
+log pipboy
+key tab
+wait 120
+key tab
+wait 90
+log vats
+key v
+wait 120
+key v
+wait 90
+log fov_recon: done
+wait 400
+con qqq
