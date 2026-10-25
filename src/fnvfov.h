@@ -97,6 +97,7 @@ enum { kShotFrame, kShotScene, kShotWithMenu, kShotUser };
 void ScreenshotRequest(int kind);
 void ScreenshotPresent(IDirect3DDevice9* dev, IDirect3DSurface9* frame);  // final frame, before the overlay
 void ScreenshotAfterOverlay(IDirect3DDevice9* dev, IDirect3DSurface9* frame);  // with the settings menu
+IDirect3DSurface9* ScreenshotFreshCopy();  // the key's screenshot taken this frame (its copy, any size), or null
 void ScreenshotPreUI(IDirect3DDevice9* dev);                               // scene only, before the HUD
 void ScreenshotLost();
 void ScreenshotFolder(char* out);  // the screenshot folder (created if missing), trailing backslash

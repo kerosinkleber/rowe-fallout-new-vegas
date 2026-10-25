@@ -1,0 +1,14 @@
+# The stats window in screenshots (start with rowe.ini stats=1): loads Save 15 and takes a
+# screenshot as the screenshot key does (screenshotdir, size and format from rowe.ini).
+# Nothing is saved.
+log stats_shot: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 150
+log shot
+usershot
+wait 300
+log done
+con qqq

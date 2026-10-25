@@ -11,7 +11,8 @@
 // close` commands (OverlayCommand).
 //
 // The stats window (stats=1) is drawn by the same ImGui frame, with the menu closed too; it only
-// takes the mouse (to be dragged) while the menu is open.
+// takes the mouse (to be dragged) while the menu is open. It is also drawn into the key's
+// screenshots (the menu is not), scaled to their size.
 #include <windows.h>
 #include <shellapi.h>
 #include <math.h>
@@ -21,6 +22,7 @@
 #include <stdlib.h>
 #include "fnvfov.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "backends/imgui_impl_dx9.h"
 #include "backends/imgui_impl_win32.h"
 #include "sharetechmono_ttf.h"
@@ -368,6 +370,42 @@ static void DrawStats(float menuPx, int backW, int backH)
     HudApplyStyle(menuPx, c);
 }
 
+// The stats window in the key's screenshot taken this frame (screenshot.cpp copies the frame
+// before the overlay is drawn): this frame's draw list of it again, scaled to the screenshot's size
+// (the supersampled size, or the window's). Its text is the on-screen glyphs, magnified.
+static void DrawStatsInto(IDirect3DDevice9* dev, IDirect3DSurface9* shot)
+{
+    ImGuiWindow* w = ImGui::FindWindowByName("ROWE STATS");
+    ImVec2 display = ImGui::GetIO().DisplaySize;
+    D3DSURFACE_DESC d;
+    if (!w || !w->Active || w->Hidden || display.x <= 0 || display.y <= 0 || FAILED(shot->GetDesc(&d))) return;
+    float kx = d.Width / display.x, ky = d.Height / display.y;
+    ImDrawList* dl = w->DrawList->CloneOutput();
+    for (ImDrawVert& v : dl->VtxBuffer) {
+        v.pos.x *= kx;
+        v.pos.y *= ky;
+    }
+    for (ImDrawCmd& c : dl->CmdBuffer) c.ClipRect = ImVec4(c.ClipRect.x * kx, c.ClipRect.y * ky, c.ClipRect.z * kx, c.ClipRect.w * ky);
+    ImDrawData dd;
+    dd.Valid = true;
+    dd.DisplayPos = ImVec2(0, 0);
+    dd.DisplaySize = ImVec2((float)d.Width, (float)d.Height);
+    dd.FramebufferScale = ImVec2(1, 1);
+    dd.CmdLists.push_back(dl);  // (not AddDrawList: it checks write pointers a cloned list does not have)
+    dd.CmdListsCount = 1;
+    dd.TotalVtxCount = dl->VtxBuffer.Size;
+    dd.TotalIdxCount = dl->IdxBuffer.Size;
+    dev->SetRenderTarget(0, shot);
+    D3DVIEWPORT9 vp = {0, 0, d.Width, d.Height, 0.f, 1.f};
+    dev->SetViewport(&vp);
+    if (SUCCEEDED(dev->BeginScene())) {
+        ImGui_ImplDX9_RenderDrawData(&dd);  // the font texture is already up to date (the frame's own draw data went first)
+        dev->EndScene();
+    }
+    IM_DELETE(dl);
+    Log("overlay: stats window drawn into the screenshot (%ux%u)", d.Width, d.Height);
+}
+
 // ---- the window ------------------------------------------------------------------------------
 
 static void DrawMenu(int backW, int backH)
@@ -690,6 +728,8 @@ void OverlayPresent(IDirect3DDevice9* dev, IDirect3DSurface9* target)
         ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());  // saves and restores the device state itself
         dev->EndScene();
     }
+    if (g_settings.stats)
+        if (IDirect3DSurface9* shot = ScreenshotFreshCopy()) DrawStatsInto(dev, shot);
     dev->SetRenderTarget(0, oldRT);
     dev->SetDepthStencilSurface(oldDS);
     dev->SetViewport(&oldVp);

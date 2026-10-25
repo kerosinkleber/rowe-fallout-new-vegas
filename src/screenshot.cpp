@@ -1,7 +1,7 @@
 // Screenshots.
 //
 // The screenshot key (rowe.ini screenshotkey, default F12) saves the finished frame (HUD included,
-// before the settings menu is drawn) to screenshotdir, at the supersampled size (screenshotsize=full,
+// and the stats window, before the settings menu is drawn) to screenshotdir, at the supersampled size (screenshotsize=full,
 // the frame the game rendered, before it is averaged down) or the window's, as PNG or JPEG
 // (screenshotformat, screenshotquality), encoded by Windows' imaging codecs (WIC). Like ReShade, the
 // game is not held up while the file is written: the frame is copied on the GPU in the frame it is
@@ -107,6 +107,7 @@ static struct { char path[MAX_PATH]; UINT w, h; bool jpg; int quality; DWORD sta
 // GPU side (render thread).
 static IDirect3DTexture9* s_copy;
 static IDirect3DSurface9* s_copySurface;  // the frame, as taken
+static bool s_copyFresh;                   // s_copy was taken this frame: the overlay can still draw into it
 static IDirect3DSurface9* s_stripRT;
 static IDirect3DSurface9* s_stripSys;
 static UINT s_nextRow;
@@ -270,6 +271,7 @@ static void StartUserShot(IDirect3DDevice9* dev, IDirect3DSurface9* windowFrame)
         src->AddRef();
     }
     src->Release();
+    s_copyFresh = copied;
     UINT rows = kStripRows < d.Height ? kStripRows : d.Height;
     if (FAILED(dev->CreateRenderTarget(d.Width, rows, d.Format, D3DMULTISAMPLE_NONE, 0, FALSE, &s_stripRT, nullptr)) ||
         FAILED(dev->CreateOffscreenPlainSurface(d.Width, rows, d.Format, D3DPOOL_SYSTEMMEM, &s_stripSys, nullptr))) {
@@ -381,8 +383,11 @@ void ScreenshotPresent(IDirect3DDevice9* dev, IDirect3DSurface9* frame)
     Save(dev, frame, "");
 }
 
+IDirect3DSurface9* ScreenshotFreshCopy() { return s_copyFresh ? s_copySurface : nullptr; }
+
 void ScreenshotAfterOverlay(IDirect3DDevice9* dev, IDirect3DSurface9* frame)
 {
+    s_copyFresh = false;  // read back from the next frame on
     if (!s_wantMenu || !frame) return;
     s_wantMenu = false;
     Save(dev, frame, "_menu");
