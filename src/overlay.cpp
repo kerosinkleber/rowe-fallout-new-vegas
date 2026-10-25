@@ -9,9 +9,13 @@
 //
 // Every change applies at once and is saved to rowe.ini. Tools: the `overlay open` / `overlay
 // close` commands (OverlayCommand).
+//
+// The stats window (stats=1) is drawn by the same ImGui frame, with the menu closed too; it only
+// takes the mouse (to be dragged) while the menu is open.
 #include <windows.h>
 #include <shellapi.h>
 #include <math.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -271,6 +275,99 @@ static void DrawRestart()
     }
 }
 
+// ---- stats window ------------------------------------------------------------------------------
+// What the mod is doing now: the lens (its mode, the FOV it shows and the FOV rendered for it) and
+// supersampling (the size rendered and the size shown), in a small window in the menu's look. Its
+// text size is statssize percent of the menu's; a drag (menu open) moves it, kept as fractions of
+// the screen (statsx, statsy; -1 = the top right corner).
+
+static ImVec2 s_statsLast(-1, -1);  // where the stats window was last frame (top-left), before a drag
+static bool s_statsPlace;           // put it where the settings say on the next frame (reset position)
+
+static void StatsRow(const char* label, const char* fmt, ...)
+{
+    char buf[160];
+    va_list ap;
+    va_start(ap, fmt);
+    _vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
+    va_end(ap);
+    buf[sizeof(buf) - 1] = 0;
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::TextDisabled("%s", label);
+    ImGui::TableNextColumn();
+    ImGui::TextUnformatted(buf);
+}
+
+static bool RestartNeeded(char* why, int size);
+
+static void DrawStats(float menuPx, int backW, int backH)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    float px = floorf(menuPx * g_settings.statsSize / 100.f + 0.5f), c[3];
+    MenuColor(c);
+    HudApplyStyle(px, c);
+    ImGui::PushFont(nullptr, px);
+    bool placed = g_settings.statsX >= 0;
+    ImVec2 pos = placed ? ImVec2(floorf(g_settings.statsX * io.DisplaySize.x), floorf(g_settings.statsY * io.DisplaySize.y))
+                        : ImVec2(floorf(io.DisplaySize.x * 0.98f), floorf(io.DisplaySize.y * 0.03f));
+    // Pinned while the menu is closed; with it open ImGui keeps the position, so it can be dragged.
+    ImGui::SetNextWindowPos(pos, s_open && !s_statsPlace ? ImGuiCond_Appearing : ImGuiCond_Always, placed ? ImVec2(0, 0) : ImVec2(1, 0));
+    s_statsPlace = false;
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
+                             ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus |
+                             ImGuiWindowFlags_NoNav;
+    if (!s_open) flags |= ImGuiWindowFlags_NoInputs;
+    if (ImGui::Begin("ROWE STATS", nullptr, flags)) {
+        ImGui::TextUnformatted("ROWE STATS");
+        if (s_open) HudTip("Drag to move it (while this menu is open). Turn it off in Other, Stats.");
+        if (ImGui::BeginTable("stats", 2, ImGuiTableFlags_SizingFixedFit)) {
+            static const char* kLensNames[kLensModeCount] = {"off", "auto", "Panini", "stereographic", "fisheye"};
+            float lensFov = 0, renderFov = 0, blend = 0;
+            const char* skip = "";
+            if (LensStats(&lensFov, &renderFov, &blend, &skip)) {
+                if (g_settings.lens == kLensAuto) StatsRow("Lens", "auto: %d%% Panini", (int)(blend * 100 + 0.5f));
+                else if (g_settings.lens == kLensFisheye) StatsRow("Lens", "fisheye, %s", g_settings.fisheyeCircle ? "full circle" : "fill");
+                else StatsRow("Lens", "%s", kLensNames[g_settings.lens]);
+                StatsRow("Lens FOV", "%.0f deg across", lensFov);
+                StatsRow("Rendered", "%.0f deg across", renderFov);
+            } else {
+                StatsRow("Lens", "%s", kLensNames[g_settings.lens]);
+                if (skip && *skip && g_settings.lens != kLensOff) StatsRow("", "not warping: %s", skip);
+            }
+            if (g_settings.fov > 0) StatsRow("FOV", "%.0f (at 4:3)", g_settings.fov);
+            else StatsRow("FOV", "game's own (%.0f)", FovBase());
+            if (ScopeView()) StatsRow("Scope overlay", "%s", g_settings.scopeLens ? "bent with the lens" : "flat");
+            int nw = 0, nh = 0, vw = 0, vh = 0;
+            if (SupersampleSizes(&nw, &nh, &vw, &vh)) {
+                StatsRow("Supersampling", "%.4gx", (float)vw * vh / ((float)nw * nh));
+                StatsRow("Renders at", "%dx%d", vw, vh);
+                StatsRow("Shown at", "%dx%d", nw, nh);
+            } else {
+                StatsRow("Supersampling", SupersampleOverridden() ? "off this start (size overridden)" : "off");
+                StatsRow("Renders at", "%dx%d", backW, backH);
+            }
+            char why[96];
+            if (RestartNeeded(why, sizeof(why)) && strstr(why, "supersampling"))
+                StatsRow("Next start", g_settings.supersample > 1.01f ? "%.4gx" : "off", g_settings.supersample);
+            ImGui::EndTable();
+        }
+        HudWindowFrame();
+        // Where a drag (menu open) left it: kept as fractions of the screen.
+        ImVec2 p = ImGui::GetWindowPos();
+        if (s_open && !ImGui::IsMouseDown(ImGuiMouseButton_Left) && s_statsLast.x >= 0 &&
+            (fabsf(p.x - s_statsLast.x) > 0.5f || fabsf(p.y - s_statsLast.y) > 0.5f) && io.DisplaySize.x > 0 && io.DisplaySize.y > 0) {
+            g_settings.statsX = fminf(fmaxf(p.x / io.DisplaySize.x, 0.f), 1.f);
+            g_settings.statsY = fminf(fmaxf(p.y / io.DisplaySize.y, 0.f), 1.f);
+            Changed();
+        }
+        if (!s_open || !ImGui::IsMouseDown(ImGuiMouseButton_Left)) s_statsLast = p;
+    }
+    ImGui::End();
+    ImGui::PopFont();
+    HudApplyStyle(menuPx, c);
+}
+
 // ---- the window ------------------------------------------------------------------------------
 
 static void DrawMenu(int backW, int backH)
@@ -467,6 +564,19 @@ static void DrawMenu(int backW, int backH)
                 bool capturing = s_capturingKey && s_captureInto == &g_settings.menuKey;
                 _snprintf(menuBtn, sizeof(menuBtn), capturing ? "press a key...###menukey" : "%s###menukey", menuKey);
                 if (ImGui::Button(menuBtn, ImVec2(-FLT_MIN, 0))) { s_capturingKey = 1; s_captureInto = &g_settings.menuKey; }
+                LabelCell("Stats", "A small window with the active lens (mode, the FOV it shows and renders) and the supersampling "
+                                   "size, shown also with this menu closed. Drag it to move it while this menu is open.");
+                if (HudCheckbox("show##stats", &g_settings.stats)) Changed();
+                ImGui::SameLine();
+                ImGui::BeginDisabled(!g_settings.stats || g_settings.statsX < 0);
+                if (ImGui::Button("reset position")) { g_settings.statsX = g_settings.statsY = -1; s_statsLast = ImVec2(-1, -1); s_statsPlace = true; Changed(); }
+                ImGui::EndDisabled();
+                HudTip("Back to the top right corner.");
+                LabelCell("Stats text size", "The stats window's text size, in percent of this menu's.");
+                ImGui::BeginDisabled(!g_settings.stats);
+                HudSliderInt("##statssize", &g_settings.statsSize, 50, 200, "%d%%");
+                if (ImGui::IsItemDeactivatedAfterEdit()) Changed();
+                ImGui::EndDisabled();
                 ImGui::EndTable();
                 HudTableFrame(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), labelW);
             }
@@ -538,8 +648,8 @@ void OverlayPresent(IDirect3DDevice9* dev, IDirect3DSurface9* target)
     if (down && !s_menuKeyDown && !s_capturingKey) s_open = !s_open;
     s_menuKeyDown = down;
     if (s_startSkipIntros < 0) s_startSkipIntros = g_settings.skipIntros ? 1 : 0;
-    if (!s_open || !target || s_failed) {
-        s_capturingKey = 0;
+    if (!s_open) s_capturingKey = 0;
+    if ((!s_open && !g_settings.stats) || !target || s_failed) {
         if (s_dirty) { SettingsSave(); s_dirty = false; }
         return;
     }
@@ -557,10 +667,12 @@ void OverlayPresent(IDirect3DDevice9* dev, IDirect3DSurface9* target)
     MenuColor(c);
     if (!HudStyleIs(px, c)) HudApplyStyle(px, c);
     CaptureKey();
+    ImGui::GetIO().MouseDrawCursor = s_open;  // the stats window alone takes no mouse
     ImGui_ImplDX9_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
-    DrawMenu((int)d.Width, (int)d.Height);
+    if (g_settings.stats) DrawStats(px, (int)d.Width, (int)d.Height);
+    if (s_open) DrawMenu((int)d.Width, (int)d.Height);
     ImGui::EndFrame();
     ImGui::Render();
     if (s_dirty && !ImGui::IsAnyItemActive()) { SettingsSave(); s_dirty = false; }

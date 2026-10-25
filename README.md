@@ -145,7 +145,8 @@ overlay, zoom FOV, Pip-Boy FOV with a **take out / put away** button to see the 
 setting it; "game" uses the game's own value), **Image** (supersampling,
 ReShade first), **Screenshots** (key: click and press the new key; folder; size; format; JPEG
 quality; **browse** picks the folder in a list, like ReShade's path picker) and **Other** (mouse
-trap, intro videos, menu key). Below the tabs, **restart game** applies the settings that only take effect
+trap, intro videos, menu key, **stats**: a small window with the active lens and the supersampling
+sizes, also with the menu closed). Below the tabs, **restart game** applies the settings that only take effect
 at start (supersampling, intro videos; the row says when one is waiting): the game is saved as
 `rowe_restart`, started again the way it was started (`nvse_loader.exe`, or a 4GB-patched
 `FalloutNV.exe` that loads xNVSE itself; under Mod Organizer 2 it stays in MO2's virtual file
@@ -175,6 +176,8 @@ the DLL:
 | `screenshotformat` | `jpg` or `png`. JPEG at quality 95 is visually lossless at these sizes, about 5x smaller and over 10x faster to write (36x, 1920x1080: 16 MB in 0.3 s against 73 MB in 4.5 s); PNG is lossless, for editing. Either way the game does not wait: the frame is copied on the GPU and written by a background thread. | `jpg` |
 | `screenshotquality` | JPEG quality 1–100. | `95` |
 | `reshadefirst` | With ReShade's **add-on build** ("ReShade with full add-on support") and supersampling: `1` has ReShade render its effects into the supersampled frame before it is averaged down, so they are in the full-size screenshots (and applied at the higher resolution); ReShade then skips its own pass. `0`: ReShade as usual (on the window-sized frame, missing from the mod's full-size screenshots). The standard ReShade build refuses add-ons; nothing changes then. Effects that read the depth buffer may not find it at the supersampled size. | `1` |
+| `stats` | `1` shows a small window with the active lens (mode, the FOV it shows and the FOV rendered for it) and the supersampling sizes, also with the settings menu closed; drag it while the menu is open to move it (`statsx`, `statsy`: its position as fractions of the screen, `-1` = top right) | `0` |
+| `statssize` | The stats window's text size, 50-200 percent of the menu's | `80` |
 
 Notes:
 

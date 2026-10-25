@@ -1,0 +1,10 @@
+# The stats window (start with rowe.ini stats=1): loads Save 15 and waits with the settings menu
+# closed, so the window can be captured over gameplay. Nothing is saved.
+log stats_window: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 15   Courier  The Tops Casino Main Floor  00 10 56"
+waitgameplay 3600
+wait 150
+log in gameplay
+wait 3600

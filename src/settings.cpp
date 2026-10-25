@@ -26,6 +26,10 @@
 //   screenshotquality=95  JPEG quality 1-100
 //   reshadefirst=1   with ReShade's add-on build: its effects are rendered into the supersampled frame
 //                    (in screenshots, applied before the frame is averaged down); 0 = ReShade as usual
+//   stats=0          1 shows the stats window (active lens, supersampling size), also with the menu closed
+//   statssize=80     its text size, 50-200 percent of the menu's
+//   statsx=-1        its position (top-left corner) as fractions of the screen, set by dragging it
+//   statsy=-1        with the menu open; -1 = the top right corner
 //
 // Section [dev] (testing only, FalloutPrefs.ini is not changed):
 //   fullscreen=0/1   overrides the game's bFull Screen at start; -1 or absent leaves it alone
@@ -102,6 +106,13 @@ void SettingsLoad()
     s.screenshotJpg = !lstrcmpiA(buf, "jpg") || !lstrcmpiA(buf, "jpeg");
     s.screenshotQuality = (int)ReadFloat("screenshotquality", 95);
     s.reshadeFirst = ReadFloat("reshadefirst", 1) != 0;
+    s.stats = ReadFloat("stats", 0) != 0;
+    s.statsSize = (int)ReadFloat("statssize", 80);
+    if (s.statsSize < 50) s.statsSize = 50;
+    if (s.statsSize > 200) s.statsSize = 200;
+    s.statsX = ReadFloat("statsx", -1);
+    s.statsY = ReadFloat("statsy", -1);
+    if (s.statsX < 0 || s.statsY < 0 || s.statsX > 1 || s.statsY > 1) s.statsX = s.statsY = -1;
     if (s.screenshotQuality < 1) s.screenshotQuality = 1;
     if (s.screenshotQuality > 100) s.screenshotQuality = 100;
     char path[MAX_PATH];
@@ -152,4 +163,11 @@ void SettingsSave()
     sprintf(v, "%d", g_settings.screenshotQuality);
     WritePrivateProfileStringA("rowe", "screenshotquality", v, path);
     WritePrivateProfileStringA("rowe", "reshadefirst", g_settings.reshadeFirst ? "1" : "0", path);
+    WritePrivateProfileStringA("rowe", "stats", g_settings.stats ? "1" : "0", path);
+    sprintf(v, "%d", g_settings.statsSize);
+    WritePrivateProfileStringA("rowe", "statssize", v, path);
+    sprintf(v, "%.4f", g_settings.statsX);
+    WritePrivateProfileStringA("rowe", "statsx", v, path);
+    sprintf(v, "%.4f", g_settings.statsY);
+    WritePrivateProfileStringA("rowe", "statsy", v, path);
 }

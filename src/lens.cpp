@@ -297,6 +297,16 @@ float LensEffectiveFov()
     return 2 * atanf(tanf(half) / (kRef * s_aspect)) * 180.f / kPi;  // engine units
 }
 
+bool LensStats(float* lensFov, float* renderFov, float* autoBlend, const char** skip)
+{
+    *skip = s_skip;
+    if (s_warpFov <= 0 || FrameCount() - s_warpFrame > 5) return false;
+    *lensFov = Circle() ? CircleTheta() * 360.f / kPi : s_warpFov;
+    *renderFov = 2 * atanf(s_snapTan) * 180.f / kPi;
+    *autoBlend = g_settings.lens == kLensAuto ? AutoBlend(s_warpFov) : 0.f;
+    return true;
+}
+
 void LensWorldDraw(float frustumRight)
 {
     s_snapTan = frustumRight;

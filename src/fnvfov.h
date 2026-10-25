@@ -57,6 +57,9 @@ struct Settings {
     bool screenshotJpg = true;           // JPEG (false: PNG)
     int screenshotQuality = 95;          // JPEG quality 1-100
     bool reshadeFirst = true;            // ReShade's effects into the supersampled frame (needs ReShade's add-on build)
+    bool stats = false;                  // the stats window (lens, supersampling), also with the menu closed
+    int statsSize = 80;                  // its text size, percent of the menu's
+    float statsX = -1, statsY = -1;      // its top-left corner, fraction of the screen; -1 = top right
     int devFullscreen = -1;  // [dev] fullscreen: -1 = the game's own bFull Screen
     int devWidth = 0, devHeight = 0;  // [dev] size: window size for this start, 0 = the game's own
     bool devVatsShrink = true;  // [dev] vatsshrink=0: VATS image space at the game's size (comparison)
@@ -118,6 +121,9 @@ bool LensCursorScale(float* kx, float* ky);  // Pip-Boy warped after the UI: ren
 bool LensCursorShown(float* x, float* y);   // Pip-Boy warped after the UI: where the cursor was shown (render px)
 void LensLost();
 float LensEffectiveFov();                  // lens FOV in use (engine units), 0 when not warping
+// For the stats window: the latest warp's lens FOV and the FOV it was rendered at (true horizontal
+// degrees), Auto's Panini share (0..1); false when no recent frame was warped (*skip says why).
+bool LensStats(float* lensFov, float* renderFov, float* autoBlend, const char** skip);
 void LensWriteState(FILE* f);
 
 // supersample.cpp: renders at a virtual resolution, averaged down at Present (see the file header).
