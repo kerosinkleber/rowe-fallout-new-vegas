@@ -69,6 +69,7 @@ struct Settings {
     int photoFast = 5;                   // fly speed factor while Shift is held (1-50)
     bool photoFreeze = false;            // stop people and creatures in photo mode
     bool photoHud = true;                // hide the HUD in photo mode
+    bool showcase = false;               // the screenshot key takes the showcase series (screenshot.cpp)
     int devFullscreen = -1;  // [dev] fullscreen: -1 = the game's own bFull Screen
     int devWidth = 0, devHeight = 0;  // [dev] size: window size for this start, 0 = the game's own
     bool devVatsShrink = true;  // [dev] vatsshrink=0: VATS image space at the game's size (comparison)
@@ -107,6 +108,7 @@ void ScreenshotRequest(int kind);
 void ScreenshotPresent(IDirect3DDevice9* dev, IDirect3DSurface9* frame);  // final frame, before the overlay
 void ScreenshotAfterOverlay(IDirect3DDevice9* dev, IDirect3DSurface9* frame);  // with the settings menu
 IDirect3DSurface9* ScreenshotFreshCopy();  // the key's screenshot taken this frame (its copy, any size), or null
+bool ShowcaseUserSettings(float* fov, int* lens, bool* stats);  // while a showcase series runs: the user's own values
 void ScreenshotPreUI(IDirect3DDevice9* dev);                               // scene only, before the HUD
 void ScreenshotLost();
 void ScreenshotFolder(char* out);  // the screenshot folder (created if missing), trailing backslash

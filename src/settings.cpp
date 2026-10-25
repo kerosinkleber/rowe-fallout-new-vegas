@@ -37,6 +37,8 @@
 //   photofast=5      photo mode: the fly speed while Shift is held, times the normal speed (1-50)
 //   photofreeze=0    photo mode: 1 stops people and creatures
 //   photohud=1       photo mode: 1 hides the HUD
+//   showcase=0       1: the screenshot key takes the showcase series instead of one shot (lens off,
+//                    Panini, stereographic, fisheye at FOV 75, 90 and 160; window size, stats window)
 //
 // Section [dev] (testing only, FalloutPrefs.ini is not changed):
 //   fullscreen=0/1   overrides the game's bFull Screen at start; -1 or absent leaves it alone
@@ -140,6 +142,7 @@ void SettingsLoad()
     if (s.photoFast > 50) s.photoFast = 50;
     s.photoFreeze = ReadFloat("photofreeze", 0) != 0;
     s.photoHud = ReadFloat("photohud", 1) != 0;
+    s.showcase = ReadFloat("showcase", 0) != 0;
     if (s.screenshotQuality < 1) s.screenshotQuality = 1;
     if (s.screenshotQuality > 100) s.screenshotQuality = 100;
     char path[MAX_PATH];
@@ -162,6 +165,9 @@ void SettingsLoad()
 
 void SettingsSave()
 {
+    // A showcase series (screenshot.cpp) sets fov, lens and stats for its shots: the user's own are saved.
+    Settings kept = g_settings;
+    ShowcaseUserSettings(&g_settings.fov, &g_settings.lens, &g_settings.stats);
     char path[MAX_PATH], v[32];
     Path(path);
     sprintf(v, "%g", g_settings.fov);
@@ -210,4 +216,6 @@ void SettingsSave()
     WritePrivateProfileStringA("rowe", "photofast", v, path);
     WritePrivateProfileStringA("rowe", "photofreeze", g_settings.photoFreeze ? "1" : "0", path);
     WritePrivateProfileStringA("rowe", "photohud", g_settings.photoHud ? "1" : "0", path);
+    WritePrivateProfileStringA("rowe", "showcase", g_settings.showcase ? "1" : "0", path);
+    g_settings = kept;
 }

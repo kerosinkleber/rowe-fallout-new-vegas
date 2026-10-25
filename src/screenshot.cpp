@@ -11,6 +11,8 @@
 // DLL at the window's size, at once, together with rowe_<date>_<time>.txt, a state snapshot taken
 // in the same frame; `shotscene` captures the scene before the HUD (pre-UI hook), `shotmenu` the
 // frame with the settings menu. `usershot` takes a screenshot as the key does.
+//
+// With showcase=1 the key takes the showcase series instead (see "showcase series" below).
 #include <windows.h>
 #include <wincodec.h>
 #include <stdio.h>
@@ -242,14 +244,16 @@ void ScreenshotFolder(char* out)
 
 static void ScreenshotReadStrips(IDirect3DDevice9* dev, int count);
 
-static void StartUserShot(IDirect3DDevice9* dev, IDirect3DSurface9* windowFrame)
+// full: at the supersampled size if there is one (else the window's); name: the file name without
+// folder and extension (null: FalloutNV_<time>).
+static void StartUserShot(IDirect3DDevice9* dev, IDirect3DSurface9* windowFrame, bool full, const char* name)
 {
     if (s_busy) {
         Log("screenshot: still writing the previous one, skipped");
         return;
     }
     IDirect3DSurface9* src = nullptr;
-    if (!(g_settings.screenshotFull && SupersampleBackBuffer(&src))) {  // the supersampled frame, or the window's
+    if (!(full && SupersampleBackBuffer(&src))) {  // the supersampled frame, or the window's
         src = windowFrame;
         src->AddRef();
     }
@@ -282,7 +286,8 @@ static void StartUserShot(IDirect3DDevice9* dev, IDirect3DSurface9* windowFrame)
     char dir[MAX_PATH], stamp[32];
     ScreenshotFolder(dir);
     TimeStamp(stamp);
-    _snprintf(s_job.path, MAX_PATH - 1, "%sFalloutNV_%s.%s", dir, stamp, g_settings.screenshotJpg ? "jpg" : "png");
+    if (name) _snprintf(s_job.path, MAX_PATH - 1, "%s%s.%s", dir, name, g_settings.screenshotJpg ? "jpg" : "png");
+    else _snprintf(s_job.path, MAX_PATH - 1, "%sFalloutNV_%s.%s", dir, stamp, g_settings.screenshotJpg ? "jpg" : "png");
     s_job.w = d.Width;
     s_job.h = d.Height;
     s_job.jpg = g_settings.screenshotJpg;
@@ -363,6 +368,87 @@ void ScreenshotLost()
     ReleaseGpu();
 }
 
+// ---- showcase series ---------------------------------------------------------------------------
+// With showcase=1 the screenshot key takes a series instead of one shot: lens off, Panini,
+// stereographic and fisheye at FOV 75, 90 and 160 (12 shots), at the window's size with the stats
+// window in them (overlay.cpp draws it into each copy), named ROWE_showcase_<time>_fov<fov>_<lens>.
+// Each setting gets kShowcaseSettle frames to take effect, and a shot waits until the previous one
+// is written. The next shot's settings are applied only on the frame after a shot, because the
+// overlay draws the stats window into the shot's copy later in the frame it is taken. The user's fov, lens and stats come back afterwards (SettingsSave writes those in
+// the meantime); the key again stops the series.
+
+static const float kShowcaseFov[] = {75.f, 90.f, 160.f};
+static const int kShowcaseLens[] = {kLensOff, kLensPanini, kLensStereographic, kLensFisheye};
+static const char* kShowcaseLensName[] = {"nolens", "panini", "stereographic", "fisheye"};
+static const int kShowcaseShots = 12, kShowcaseSettle = 20;
+static int s_showcaseShot = -1;  // the next shot of the running series (kShowcaseShots: all taken), -1 = none
+static int s_showcaseWait;       // frames left before the next shot
+static bool s_showcaseNext;      // a shot was taken last frame: apply the next one's settings now
+static char s_showcaseStamp[32];
+static float s_userFov;
+static int s_userLens;
+static bool s_userStats;
+
+bool ShowcaseUserSettings(float* fov, int* lens, bool* stats)
+{
+    if (s_showcaseShot < 0) return false;
+    *fov = s_userFov;
+    *lens = s_userLens;
+    *stats = s_userStats;
+    return true;
+}
+
+static void ShowcaseApply(int shot)
+{
+    g_settings.fov = kShowcaseFov[shot / 4];
+    g_settings.lens = kShowcaseLens[shot % 4];
+    s_showcaseWait = kShowcaseSettle;
+}
+
+static void ShowcaseEnd(const char* how)
+{
+    g_settings.fov = s_userFov;
+    g_settings.lens = s_userLens;
+    g_settings.stats = s_userStats;
+    Log("showcase: %s after %d of %d shots", how, s_showcaseShot, kShowcaseShots);
+    s_showcaseShot = -1;
+}
+
+static void ShowcaseStart()
+{
+    s_userFov = g_settings.fov;
+    s_userLens = g_settings.lens;
+    s_userStats = g_settings.stats;
+    g_settings.stats = true;
+    TimeStamp(s_showcaseStamp);
+    s_showcaseShot = 0;
+    s_showcaseNext = false;
+    ShowcaseApply(0);
+    Log("showcase: a series of %d shots", kShowcaseShots);
+}
+
+static void ShowcaseFrame(IDirect3DDevice9* dev, IDirect3DSurface9* frame)
+{
+    if (s_showcaseShot < 0) return;
+    if (s_showcaseShot >= kShowcaseShots) {  // the last one was taken last frame, stats window included
+        ShowcaseEnd("done");
+        return;
+    }
+    if (s_showcaseNext) {
+        s_showcaseNext = false;
+        ShowcaseApply(s_showcaseShot);
+        return;
+    }
+    if (s_showcaseWait > 0) { --s_showcaseWait; return; }
+    if (s_busy) return;  // the previous shot is still being written
+    char name[96];
+    _snprintf(name, sizeof(name) - 1, "ROWE_showcase_%s_fov%03d_%s", s_showcaseStamp, (int)kShowcaseFov[s_showcaseShot / 4],
+              kShowcaseLensName[s_showcaseShot % 4]);
+    name[sizeof(name) - 1] = 0;
+    StartUserShot(dev, frame, false, name);
+    if (++s_showcaseShot < kShowcaseShots) s_showcaseNext = true;
+}
+
 void ScreenshotPresent(IDirect3DDevice9* dev, IDirect3DSurface9* frame)
 {
     static bool prev;
@@ -375,8 +461,11 @@ void ScreenshotPresent(IDirect3DDevice9* dev, IDirect3DSurface9* frame)
         ScreenshotReadStrips(dev, kStripsPerFrame);
         if (s_wantUser) {
             s_wantUser = false;
-            StartUserShot(dev, frame);
+            if (s_showcaseShot >= 0) ShowcaseEnd("stopped");
+            else if (g_settings.showcase) ShowcaseStart();
+            else StartUserShot(dev, frame, g_settings.screenshotFull, nullptr);
         }
+        ShowcaseFrame(dev, frame);
     }
     if (!s_want) return;
     s_want = false;

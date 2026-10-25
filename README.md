@@ -207,6 +207,7 @@ the DLL:
 | `photofast` | Photo mode: how many times faster you fly while Shift is held (1-50), up and down too. The movement settings and `SpeedMult` do not change the flying speed, so the mod scales the movement itself where the game places the flying player each frame (whatever moves them, animation mods included). | `5` |
 | `photohud` | Photo mode: `1` hides the HUD. | `1` |
 | `photofreeze` | Photo mode: `1` stops people and creatures. | `0` |
+| `showcase` | `1`: the screenshot key takes the showcase series instead of one shot: no lens, Panini, stereographic and fisheye at FOV 75, 90 and 160 (12 shots, window size, the stats window in each), named `ROWE_showcase_<time>_fov<fov>_<lens>`. Your FOV, lens and stats come back after; the key again stops it. Also the "Showcase" checkbox on the menu's Photo tab. | `0` |
 
 Notes:
 

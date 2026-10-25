@@ -614,6 +614,10 @@ static void DrawMenu(int backW, int backH)
                 if (HudCheckbox("##photohud", &g_settings.photoHud)) Changed();
                 LabelCell("Freeze people", "Stops people and creatures where they are while photo mode is on (weather and effects go on).");
                 if (HudCheckbox("##photofreeze", &g_settings.photoFreeze)) Changed();
+                LabelCell("Showcase", "The screenshot key takes a series of 12 shots instead of one: no lens, Panini, "
+                                      "stereographic and fisheye at FOV 75, 90 and 160, at the window's size with the stats "
+                                      "window in them. Your FOV, lens and stats come back after; the key again stops it.");
+                if (HudCheckbox("##showcase", &g_settings.showcase)) Changed();
                 ImGui::EndTable();
                 HudTableFrame(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), labelW);
             }
