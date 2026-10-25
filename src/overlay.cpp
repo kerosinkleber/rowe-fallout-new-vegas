@@ -590,7 +590,7 @@ static void DrawMenu(int backW, int backH)
                 ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, labelW);
                 ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch);
                 LabelCell("Photo mode", "You fly, invisible, through walls, and nothing can detect you; the world loads as you go. "
-                                        "Move with the movement keys where you look, hold Shift to fly faster. The shortcut ends it "
+                                        "Move with the movement keys where you look, Space flies up, Ctrl down, Shift faster. The shortcut ends it "
                                         "and puts you back where you started; opening a menu ends it too, and Quicksave is off "
                                         "while it is on.");
                 ImGui::BeginDisabled(!PhotoActive() && !InGameplay());
@@ -600,7 +600,7 @@ static void DrawMenu(int backW, int backH)
                 }
                 ImGui::EndDisabled();
                 LabelCell("Shortcut", "Starts and ends photo mode. Click, then press the key, with Ctrl and/or Alt if you like "
-                                      "(Shift is the speed key; Ctrl is also the game's sneak key, Alt is free). Esc cancels.");
+                                      "(in photo mode Shift is the speed key and Ctrl flies down; Alt is free). Esc cancels.");
                 char photoKey[48], photoBtn[80];
                 ShortcutName(g_settings.photoKey, photoKey, sizeof(photoKey));
                 bool capturingPhoto = s_capturingKey && s_captureInto == &g_settings.photoKey;

@@ -1,0 +1,39 @@
+# Photo mode up and down (save "ROWE Photo Test"): Space / Ctrl / Shift are held from outside (the
+# watcher script holds them by the last log line: "up" Space, "down" Ctrl, "up fast" Space + Shift,
+# "forward up" Space while W is held through xNVSE). The height must rise / fall at about 400 units/s
+# (x photofast with Shift), and forward flight must go on while rising. Then photo mode ends and the
+# player must be back at the start. Nothing is saved.
+log photo_updown: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+waitgameplay 3600
+wait 150
+waitfocus 3600
+wait 120
+waitfocus 3600
+log start
+photo
+wait 60
+log still
+wait 120
+log up
+wait 240
+log down
+wait 240
+log up fast
+wait 180
+log pause
+wait 60
+keydown w
+wait 60
+log forward
+wait 180
+log forward up
+wait 180
+keyup w
+log ended
+photo
+wait 240
+log done
+wait 300

@@ -12,7 +12,8 @@
 // while Shift is held. Nothing else changes speed: the movement settings, SpeedMult and the
 // general GetMovementSpeed (0x8A0B10, which only xNVSE asks for the player) are not on that path.
 // The game's Run control (Shift) is off while photo mode is on, or Shift would also switch to
-// walking.
+// walking. Space flies up and Ctrl down (Jump and Sneak are off while it is on): see
+// Hook_SetPosition.
 // The shortcut again ends it and puts the player back where photo mode started: there it leaves
 // a marker (PlaceAtMe XMarkerHeading), and the player is moved to it (MoveTo) a moment after the
 // collision is back on (a move while flying is lost). Opening a menu (the pause menu with its
@@ -20,7 +21,8 @@
 // off while it is on: a save would keep the invisible player.
 // Everything is put back as it was: each toggle is toggled back only if photo mode toggled it
 // (and the state is tracked, so an early end never toggles one twice), Quicksave and Run are
-// enabled only if they were, the speed scale goes back to 1, the marker is deleted.
+// (and Jump and Sneak) enabled only if they were, the speed scale goes back to 1, the marker is
+// deleted.
 // Starts only in gameplay; the console commands run on the game thread.
 #include <windows.h>
 #include <intrin.h>
@@ -28,7 +30,8 @@
 #include "fnvfov.h"
 
 static bool s_active, s_keyDown;
-static bool s_noclip, s_hudHidden, s_aiStopped, s_povSwitched, s_undetected, s_invisible, s_quicksaveOff, s_runOff;
+static bool s_noclip, s_hudHidden, s_aiStopped, s_povSwitched, s_undetected, s_invisible, s_quicksaveOff, s_runOff, s_jumpOff,
+    s_sneakOff;
 static float s_startX, s_startY, s_startZ;  // where the player was when photo mode started
 static float s_startRot;                    // their heading (degrees)
 static DWORD s_startWorld;                  // their worldspace (0: an interior)
@@ -56,11 +59,41 @@ static float Scaled(float v, void* actor, DWORD ret)
 static float __fastcall Hook_WalkSpeed(void* actor, void* edx) { return Scaled(s_walkSpeed(actor, edx), actor, (DWORD)_ReturnAddress()); }
 static float __fastcall Hook_RunSpeed(void* actor, void* edx) { return Scaled(s_runSpeed(actor, edx), actor, (DWORD)_ReturnAddress()); }
 
+// Up and down (Space / Ctrl): with collision off the player update puts the player each frame with
+// PlayerCharacter::SetPosition (0x931620, thiscall, the position by pointer) from its noclip block
+// (the call returning to 0x9427EF): the old position plus a vertical step. The detour adds the up /
+// down step to that one call's height, at the flying speed (times photofast with Shift).
+typedef void(__fastcall* SetPositionFn)(void* pc, void* edx, float* pos);
+static SetPositionFn s_setPosition;
+static int s_vertical;  // +1 up, -1 down, 0 (game thread)
+static LARGE_INTEGER s_lastVertical;
+static DWORD s_verticalCalls;
+static const float kVerticalSpeed = 400.f;  // units per second, about the flying speed
+
+static void __fastcall Hook_SetPosition(void* pc, void* edx, float* pos)
+{
+    if (s_vertical && (DWORD)_ReturnAddress() == 0x009427EF && pos && !IsBadReadPtr(pos, 12)) {
+        LARGE_INTEGER now, freq;
+        QueryPerformanceCounter(&now);
+        QueryPerformanceFrequency(&freq);
+        float dt = s_lastVertical.QuadPart ? (float)(now.QuadPart - s_lastVertical.QuadPart) / (float)freq.QuadPart : 0.f;
+        s_lastVertical = now;
+        if (dt > 0.1f) dt = 0.1f;  // after a pause or a hitch
+        float step[3] = {pos[0], pos[1], pos[2] + s_vertical * kVerticalSpeed * s_speedScale * dt};
+        ++s_verticalCalls;
+        s_setPosition(pc, edx, step);
+        return;
+    }
+    s_setPosition(pc, edx, pos);
+}
+
 void PhotoInstall()
 {
     static const BYTE kSpeed[] = {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x08};  // push ebp; mov ebp, esp; sub esp, 8
     s_walkSpeed = (SpeedFn)InstallDetour(0x00884DC0, kSpeed, sizeof(kSpeed), (void*)Hook_WalkSpeed, "walk speed (photo mode Shift)");
     s_runSpeed = (SpeedFn)InstallDetour(0x00884EB0, kSpeed, sizeof(kSpeed), (void*)Hook_RunSpeed, "run speed (photo mode Shift)");
+    s_setPosition = (SetPositionFn)InstallDetour(0x00931620, kSpeed, sizeof(kSpeed), (void*)Hook_SetPosition,
+                                                 "PlayerCharacter::SetPosition (photo mode up / down)");
 }
 
 static bool PlayerPos(float* x, float* y, float* z)
@@ -142,6 +175,10 @@ static void Enter()
     if (s_quicksaveOff) GameConsole("DisableControl 25");
     s_runOff = ScriptValue("IsControlDisabled 9") == 0;  // 9: Run (Shift: it would switch to walking)
     if (s_runOff) GameConsole("DisableControl 9");
+    s_jumpOff = ScriptValue("IsControlDisabled 12") == 0;  // 12: Jump (Space flies up)
+    if (s_jumpOff) GameConsole("DisableControl 12");
+    s_sneakOff = ScriptValue("IsControlDisabled 8") == 0;  // 8: Sneak (Ctrl flies down)
+    if (s_sneakOff) GameConsole("DisableControl 8");
     Log("photo: on at %.0f %.0f %.0f (worldspace %08lX, marker %p; people %s, HUD %s, Quicksave %s, Shift x%d%s)", s_startX, s_startY,
         s_startZ, s_startWorld, s_marker, s_aiStopped ? "stopped" : "moving", s_hudHidden ? "hidden" : "shown",
         s_quicksaveOff ? "turned off" : "was off", g_settings.photoFast, s_walkSpeed && s_runSpeed ? "" : ", speed detours missing");
@@ -157,6 +194,7 @@ void PhotoExit(const char* why)
     }
     s_active = false;
     s_speedScale = 1.f;
+    s_vertical = 0;
     float px = s_startX, py = s_startY, pz = s_startZ;
     PlayerPos(&px, &py, &pz);
     SetNoclip(false);
@@ -167,7 +205,9 @@ void PhotoExit(const char* why)
     if (s_aiStopped) GameConsole("tai");
     if (s_quicksaveOff) GameConsole("EnableControl 25");
     if (s_runOff) GameConsole("EnableControl 9");
-    s_povSwitched = s_invisible = s_undetected = s_hudHidden = s_aiStopped = s_quicksaveOff = s_runOff = false;
+    if (s_jumpOff) GameConsole("EnableControl 12");
+    if (s_sneakOff) GameConsole("EnableControl 8");
+    s_povSwitched = s_invisible = s_undetected = s_hudHidden = s_aiStopped = s_quicksaveOff = s_runOff = s_jumpOff = s_sneakOff = false;
     // A load, the main menu and quitting leave this game: there is nothing to move back.
     bool back = lstrcmpA(why, "a game is loaded") != 0 && lstrcmpA(why, "main menu") != 0 && lstrcmpA(why, "quit") != 0;
     if (back) {
@@ -221,8 +261,11 @@ void PhotoTick()
         PhotoExit("a menu opened");
         return;
     }
-    bool shift = GameInFront() && (GetAsyncKeyState(VK_SHIFT) & 0x8000);
-    s_speedScale = shift ? (float)g_settings.photoFast : 1.f;
+    bool front = GameInFront();
+    s_speedScale = front && (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? (float)g_settings.photoFast : 1.f;
+    int vertical = !front ? 0 : (GetAsyncKeyState(VK_SPACE) & 0x8000) ? 1 : (GetAsyncKeyState(VK_CONTROL) & 0x8000) ? -1 : 0;
+    if (vertical != s_vertical) s_lastVertical.QuadPart = 0;  // the first step after a change has no time yet
+    s_vertical = vertical;
 }
 
 void PhotoWriteState(FILE* f)
@@ -232,7 +275,7 @@ void PhotoWriteState(FILE* f)
     fprintf(f, "photo: %s, shortcut %x, fast x%d, freeze %d, hud %d; player %.1f %.1f %.1f, start %.1f %.1f %.1f (worldspace %08lX; now %08lX)\n",
             s_active ? "on" : "off", g_settings.photoKey, g_settings.photoFast, g_settings.photoFreeze, g_settings.photoHud, px, py, pz,
             s_startX, s_startY, s_startZ, s_startWorld, WorldspaceId());
-    fprintf(f, "photo: cell %08lX; noclip %d, marker %p, move back %s (tries %d); speed detours %s, scale %.2f, scaled calls %lu\n",
+    fprintf(f, "photo: cell %08lX; noclip %d, marker %p, move back %s (tries %d); speed detours %s, scale %.2f, scaled calls %lu; up/down %d (%s), %lu steps\n",
             CellId(), s_noclip, s_marker, s_backAt ? "pending" : "no", s_backTries, s_walkSpeed && s_runSpeed ? "installed" : "MISSING",
-            s_speedScale, s_scaledCalls);
+            s_speedScale, s_scaledCalls, s_vertical, s_setPosition ? "installed" : "MISSING", s_verticalCalls);
 }

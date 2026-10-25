@@ -19,7 +19,7 @@ A mod for **Fallout: New Vegas** (PC) in the style of
   everywhere.
 - **Intro skip**: clears the intro video settings in memory.
 - **Autosave** every so many minutes of play (you choose the interval), into a few rotating saves.
-- **Photo mode**: fly anywhere, invisible and undetectable, the world loading as you go; hold Shift to fly faster.
+- **Photo mode**: fly anywhere, invisible and undetectable, the world loading as you go; Space / Ctrl fly up and down, Shift flies faster.
 - **Fullscreen at any size**: fullscreen at a size the monitor has no display mode for (1400x1400,
   say) would stop the game with "failed to initialize renderer"; the mod runs it as a borderless
   window of that size instead, centred on a black background.
@@ -141,7 +141,7 @@ target `powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -F
 |---|---|
 | F8 | Open or close the settings menu (`menukey`) |
 | F12 | Screenshot (key, folder, size and format: in the menu, or the `screenshot...` settings below) |
-| F10 | Photo mode on / off (`photokey`, also with Ctrl / Alt). In photo mode: the movement keys fly you where you look; hold Shift to fly `photofast` times faster |
+| F10 | Photo mode on / off (`photokey`, also with Ctrl / Alt). In photo mode: the movement keys fly you where you look, Space up, Ctrl down; hold Shift to fly `photofast` times faster |
 
 The settings menu (F8) is used with the mouse (sliders, lists, checkboxes; hover for an
 explanation) or the keyboard (arrows, Enter, Tab). It has four tabs: **View** (FOV, lens, scope
@@ -186,7 +186,7 @@ the DLL:
 | `autosave` | `1` saves the game every `autosaveminutes` minutes of play as "ROWE Autosave 1", 2, ... in turn. Only time in gameplay counts (not menus, loading screens or the game in the background); when the time is up during combat or with the player dead it waits until that is over; loading, starting or saving a game (your own saves too) starts the count again. Also on the launcher's Mod tab and the MCM page. | `0` |
 | `autosaveminutes` | Minutes of play between autosaves, 1-240. | `20` |
 | `autosaveslots` | How many autosaves are kept, 1-10: the oldest is overwritten (`autosavenext` is the next slot). | `3` |
-| `photokey` | Photo mode shortcut: a key name as `screenshotkey`, optionally with `Ctrl+` / `Alt+` (e.g. `Alt+P`; Shift is the speed key, Ctrl is also the game's sneak key). Photo mode: the player flies with collision off (`tcl`; they move where they look, so the game loads the world around them as when walking), invisible (`SetActorAlpha 0`) and undetectable (`tdetect`), seen from the third person, the HUD hidden (`tm`) if `photohud=1`, people and creatures stopped (`tai`) if `photofreeze=1`. It starts only in gameplay. The shortcut again puts the player back where photo mode started (a marker is left there and the player is moved to it with `MoveTo`; the marker is deleted after); opening a menu (the pause menu, the Pip-Boy) ends it the same way, and loading a game, the main menu and quitting end it too. Everything is put back as it was: each toggle is toggled back only if photo mode toggled it. Quicksave is off while it is on and autosave waits, so no save keeps the invisible player; the game's Run control is off too (Shift would also switch to walking). Both are enabled again after only if they were. | `F10` |
+| `photokey` | Photo mode shortcut: a key name as `screenshotkey`, optionally with `Ctrl+` / `Alt+` (e.g. `Alt+P`; in photo mode Shift is the speed key and Ctrl flies down). Photo mode: the player flies with collision off (`tcl`; they move where they look, so the game loads the world around them as when walking), invisible (`SetActorAlpha 0`) and undetectable (`tdetect`), seen from the third person, the HUD hidden (`tm`) if `photohud=1`, people and creatures stopped (`tai`) if `photofreeze=1`. It starts only in gameplay. The shortcut again puts the player back where photo mode started (a marker is left there and the player is moved to it with `MoveTo`; the marker is deleted after); opening a menu (the pause menu, the Pip-Boy) ends it the same way, and loading a game, the main menu and quitting end it too. Everything is put back as it was: each toggle is toggled back only if photo mode toggled it. Quicksave is off while it is on and autosave waits, so no save keeps the invisible player; the game's Run, Jump and Sneak controls are off too (Shift would also switch to walking, Space and Ctrl fly up and down). All are enabled again after only if they were. | `F10` |
 | `photofast` | Photo mode: how many times faster you fly while Shift is held (1-50). The movement settings and `SpeedMult` do not change the flying speed, so the mod scales the player's walk / run speed in the game's movement update (only there, only in photo mode with Shift held). | `5` |
 | `photohud` | Photo mode: `1` hides the HUD. | `1` |
 | `photofreeze` | Photo mode: `1` stops people and creatures. | `0` |

@@ -988,7 +988,7 @@ static void DrawModRows()
     // Photo mode: its shortcut, the fast speed, the HUD and the frozen world.
     LabelCell("Photo mode shortcut", "Starts and ends photo mode in the game (you fly, invisible and "
                                      "undetectable). Click, then press the key, with Ctrl and/or Alt if you like (Shift is the "
-                                     "speed key; Ctrl is also the game's sneak key, Alt is free). Esc cancels.",
+                                     "speed key and Ctrl flies down in photo mode; Alt is free). Esc cancels.",
               kIniNone);
     {
         char name[48], btn[80];
