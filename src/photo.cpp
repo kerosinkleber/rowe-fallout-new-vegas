@@ -6,16 +6,10 @@
 // photofreeze=1. Because the player really moves, the game crosses cells and loads the world as
 // when walking (a free camera, "tfc", leaves the player behind and nothing loads where it flies,
 // and moving the player after it with SetPos leaves their cell behind and crashed the game).
-// Holding Shift flies photofast times faster. The movement update (0x895110) asks the walk or run
-// speed (0x884DC0 / 0x884EB0) each frame and moves the player by it, collision off too; detours on
-// those two scale the player's result for just its six calls while Shift is held: three when it
-// picks a new movement animation (0x896BFD, 0x896C0D, 0x896C6E), two for the one already playing
-// (0x896F7A, 0x896F8A: taken after flying up or down, for example) and one more walk (0x896544). Nothing else changes speed: the movement settings, SpeedMult and the
-// general GetMovementSpeed (0x8A0B10, which only xNVSE asks for the player) are not on that path.
-// The game's Run control (Shift) is off while photo mode is on, or Shift would also switch to
-// walking. Space flies up and Ctrl down (Jump and Sneak are off while it is on): see
-// Hook_SetPosition. The mouse wheel zooms (dinput.cpp hands it over and keeps it from the game,
-// fov.cpp applies PhotoZoomFov).
+// Holding Shift flies photofast times faster, Space flies up and Ctrl down: see Hook_SetPosition.
+// The game's Run, Jump and Sneak controls are off while photo mode is on (Shift would also switch
+// to walking, Space jump, Ctrl sneak). The mouse wheel zooms (dinput.cpp hands it over and keeps
+// it from the game, fov.cpp applies PhotoZoomFov).
 // The shortcut again ends it and puts the player back where photo mode started: there it leaves
 // a marker (PlaceAtMe XMarkerHeading), and the player is moved to it (MoveTo) a moment after the
 // collision is back on (a move while flying is lost). Opening a menu (the pause menu with its
@@ -44,58 +38,49 @@ static int s_backTries;
 
 bool PhotoActive() { return s_active; }
 
-// The walk and run speed formulas (thiscall on the actor, the result in ST0).
-typedef float(__fastcall* SpeedFn)(void* actor, void* edx);
-static SpeedFn s_walkSpeed, s_runSpeed;
-static float s_speedScale = 1.f;  // set and read on the game thread
-static DWORD s_scaledCalls;
-
-// The return addresses of the movement update's six walk / run speed calls (all store the speed it
-// moves by, [ebp-0x50]).
-static const DWORD kMoveSpeedCalls[] = {0x00896549, 0x00896C02, 0x00896C12, 0x00896C73, 0x00896F7F, 0x00896F8F};
-static DWORD s_scaledBy[6];  // per call (state file)
-
-static float Scaled(float v, void* actor, DWORD ret)
-{
-    if (s_speedScale == 1.f || actor != *(void**)0x011DEA3C) return v;
-    for (int i = 0; i < 6; ++i)
-        if (ret == kMoveSpeedCalls[i]) {
-            ++s_scaledBy[i];
-            ++s_scaledCalls;
-            return v * s_speedScale;
-        }
-    return v;
-}
-
-static float __fastcall Hook_WalkSpeed(void* actor, void* edx) { return Scaled(s_walkSpeed(actor, edx), actor, (DWORD)_ReturnAddress()); }
-static float __fastcall Hook_RunSpeed(void* actor, void* edx) { return Scaled(s_runSpeed(actor, edx), actor, (DWORD)_ReturnAddress()); }
-
-// Up and down (Space / Ctrl): with collision off the player update puts the player each frame with
+// Speed, up and down: with collision off the player update puts the player each frame with
 // PlayerCharacter::SetPosition (0x931620, thiscall, the position by pointer) from its noclip block
-// (the call returning to 0x9427EF): the old position plus a vertical step. The detour adds the up /
-// down step to that one call's height, at the flying speed (times photofast with Shift).
+// (the call returning to 0x9427EF). By then the game has already moved them by the frame's flight
+// (the position passed is the current one, moved only in height), so the detour sees all of it,
+// however it came about (animation, kNVSE, ...): it puts the player at the last position it set
+// plus that movement times photofast (Shift), plus the up / down step (Space / Ctrl, about the
+// flying speed, times photofast with Shift). The movement settings, SpeedMult and the game's walk
+// / run speed are no lever: the first two do not touch flying, and the walk / run speed (scaled at
+// the movement update's calls 0x896BFD ...) only moved the player in the vanilla animation setup.
 typedef void(__fastcall* SetPositionFn)(void* pc, void* edx, float* pos);
 static SetPositionFn s_setPosition;
-static int s_vertical;  // +1 up, -1 down, 0 (game thread)
-static LARGE_INTEGER s_lastVertical;
-static DWORD s_verticalCalls;
+static float s_speedScale = 1.f;  // set and read on the game thread
+static int s_vertical;            // +1 up, -1 down, 0
+static float s_last[3];           // the position this call set last
+static bool s_haveLast;
+static LARGE_INTEGER s_lastTime;
+static DWORD s_noclipCalls, s_scaledCalls;
 static const float kVerticalSpeed = 400.f;  // units per second, about the flying speed
 
 static void __fastcall Hook_SetPosition(void* pc, void* edx, float* pos)
 {
-    if (s_vertical && (DWORD)_ReturnAddress() == 0x009427EF && pos && !IsBadReadPtr(pos, 12)) {
-        LARGE_INTEGER now, freq;
-        QueryPerformanceCounter(&now);
-        QueryPerformanceFrequency(&freq);
-        float dt = s_lastVertical.QuadPart ? (float)(now.QuadPart - s_lastVertical.QuadPart) / (float)freq.QuadPart : 0.f;
-        s_lastVertical = now;
-        if (dt > 0.1f) dt = 0.1f;  // after a pause or a hitch
-        float step[3] = {pos[0], pos[1], pos[2] + s_vertical * kVerticalSpeed * s_speedScale * dt};
-        ++s_verticalCalls;
-        s_setPosition(pc, edx, step);
+    if (!s_active || (DWORD)_ReturnAddress() != 0x009427EF || !pos || IsBadReadPtr(pos, 12)) {
+        s_setPosition(pc, edx, pos);
         return;
     }
-    s_setPosition(pc, edx, pos);
+    ++s_noclipCalls;
+    LARGE_INTEGER now, freq;
+    QueryPerformanceCounter(&now);
+    QueryPerformanceFrequency(&freq);
+    float dt = s_lastTime.QuadPart ? (float)(now.QuadPart - s_lastTime.QuadPart) / (float)freq.QuadPart : 0.f;
+    s_lastTime = now;
+    float out[3] = {pos[0], pos[1], pos[2]};
+    float d[3] = {pos[0] - s_last[0], pos[1] - s_last[1], pos[2] - s_last[2]};
+    // A pause, a hitch or a jump that is not flying (a move by a script): start over from here.
+    bool flying = s_haveLast && dt < 0.25f && d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < 1000.f * 1000.f;
+    if (flying && s_speedScale != 1.f) {
+        for (int i = 0; i < 3; ++i) out[i] = s_last[i] + d[i] * s_speedScale;
+        ++s_scaledCalls;
+    }
+    if (flying && s_vertical) out[2] += s_vertical * kVerticalSpeed * s_speedScale * (dt > 0.1f ? 0.1f : dt);
+    s_setPosition(pc, edx, out);
+    memcpy(s_last, out, sizeof(out));
+    s_haveLast = true;
 }
 
 // Wheel zoom: the shown world FOV's tan(fov / 2) times s_zoom, which eases (in log, a steady zoom)
@@ -137,11 +122,9 @@ static void ZoomEase()
 
 void PhotoInstall()
 {
-    static const BYTE kSpeed[] = {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x08};  // push ebp; mov ebp, esp; sub esp, 8
-    s_walkSpeed = (SpeedFn)InstallDetour(0x00884DC0, kSpeed, sizeof(kSpeed), (void*)Hook_WalkSpeed, "walk speed (photo mode Shift)");
-    s_runSpeed = (SpeedFn)InstallDetour(0x00884EB0, kSpeed, sizeof(kSpeed), (void*)Hook_RunSpeed, "run speed (photo mode Shift)");
-    s_setPosition = (SetPositionFn)InstallDetour(0x00931620, kSpeed, sizeof(kSpeed), (void*)Hook_SetPosition,
-                                                 "PlayerCharacter::SetPosition (photo mode up / down)");
+    static const BYTE kStart[] = {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x08};  // push ebp; mov ebp, esp; sub esp, 8
+    s_setPosition = (SetPositionFn)InstallDetour(0x00931620, kStart, sizeof(kStart), (void*)Hook_SetPosition,
+                                                 "PlayerCharacter::SetPosition (photo mode speed, up / down)");
 }
 
 static bool PlayerPos(float* x, float* y, float* z)
@@ -201,6 +184,8 @@ static void Enter()
 {
     if (s_active || !InGameplay()) return;
     s_active = true;
+    s_haveLast = false;
+    s_lastTime.QuadPart = 0;
     if (!PlayerPos(&s_startX, &s_startY, &s_startZ)) s_startX = s_startY = s_startZ = 0;
     BYTE* pl = *(BYTE**)0x011DEA3C;
     s_startRot = pl ? *(float*)(pl + 0x2C) * 57.29578f : 0.f;
@@ -229,7 +214,7 @@ static void Enter()
     if (s_sneakOff) GameConsole("DisableControl 8");
     Log("photo: on at %.0f %.0f %.0f (worldspace %08lX, marker %p; people %s, HUD %s, Quicksave %s, Shift x%d%s)", s_startX, s_startY,
         s_startZ, s_startWorld, s_marker, s_aiStopped ? "stopped" : "moving", s_hudHidden ? "hidden" : "shown",
-        s_quicksaveOff ? "turned off" : "was off", g_settings.photoFast, s_walkSpeed && s_runSpeed ? "" : ", speed detours missing");
+        s_quicksaveOff ? "turned off" : "was off", g_settings.photoFast, s_setPosition ? "" : ", SetPosition detour missing: no Shift, Space, Ctrl");
 }
 
 void PhotoExit(const char* why)
@@ -313,7 +298,6 @@ void PhotoTick()
     bool front = GameInFront();
     s_speedScale = front && (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? (float)g_settings.photoFast : 1.f;
     int vertical = !front ? 0 : (GetAsyncKeyState(VK_SPACE) & 0x8000) ? 1 : (GetAsyncKeyState(VK_CONTROL) & 0x8000) ? -1 : 0;
-    if (vertical != s_vertical) s_lastVertical.QuadPart = 0;  // the first step after a change has no time yet
     s_vertical = vertical;
     ZoomEase();
 }
@@ -325,10 +309,9 @@ void PhotoWriteState(FILE* f)
     fprintf(f, "photo: %s, shortcut %x, fast x%d, freeze %d, hud %d; player %.1f %.1f %.1f, start %.1f %.1f %.1f (worldspace %08lX; now %08lX)\n",
             s_active ? "on" : "off", g_settings.photoKey, g_settings.photoFast, g_settings.photoFreeze, g_settings.photoHud, px, py, pz,
             s_startX, s_startY, s_startZ, s_startWorld, WorldspaceId());
-    fprintf(f, "photo: cell %08lX; noclip %d, marker %p, move back %s (tries %d); speed detours %s, scale %.2f, scaled calls %lu; up/down %d (%s), %lu steps\n",
-            CellId(), s_noclip, s_marker, s_backAt ? "pending" : "no", s_backTries, s_walkSpeed && s_runSpeed ? "installed" : "MISSING",
-            s_speedScale, s_scaledCalls, s_vertical, s_setPosition ? "installed" : "MISSING", s_verticalCalls);
-    fprintf(f, "photo: scaled per call %lu %lu %lu %lu %lu %lu\n", s_scaledBy[0], s_scaledBy[1], s_scaledBy[2], s_scaledBy[3], s_scaledBy[4],
-            s_scaledBy[5]);
+    fprintf(f, "photo: cell %08lX; noclip %d, marker %p, move back %s (tries %d); SetPosition detour %s, %lu noclip calls, scale %.2f "
+               "(%lu scaled), up/down %d\n",
+            CellId(), s_noclip, s_marker, s_backAt ? "pending" : "no", s_backTries, s_setPosition ? "installed" : "MISSING", s_noclipCalls,
+            s_speedScale, s_scaledCalls, s_vertical);
     fprintf(f, "photo: zoom %.3f (target %.3f), fov %.1f -> %.1f\n", s_zoom, s_zoomTarget, s_zoomShown, s_zoomFov);
 }
