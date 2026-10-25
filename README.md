@@ -145,7 +145,7 @@ nothing, and ROWE works the same without it. It uses one load order slot.
 quicksave included) as soon as the main menu exists, without clicking through it. It writes the
 plugin's command file (`rowe_cmd.txt`: `wait 300`, then the console command
 `load "<save>"`) and starts `nvse_loader.exe`. `-Save "<name>"` loads a specific save (the file
-name without `.fos`); `-Game` sets the game folder (default `B:\Games\Fallout New Vegas`). It does
+name without `.fos`); `-Game` sets the game folder (default: the install the registry names). It does
 nothing if the game is already running. A desktop shortcut for it:
 target `powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "<repo>\tools\continue.ps1"`.
 

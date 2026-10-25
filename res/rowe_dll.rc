@@ -1,0 +1,3 @@
+#define ROWE_FILE "rowe.dll"
+#define ROWE_DESC "ROWE for Fallout New Vegas (xNVSE plugin)"
+#include "rowe.rc"

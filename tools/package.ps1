@@ -2,8 +2,9 @@
 # - dist\ROWE-<date>.zip for mod managers (Mod Organizer 2, Vortex): a FOMOD installer. The core
 #   files (relative to the game's Data folder: NVSE\Plugins\rowe.dll, rowe_launcher.exe, readme,
 #   licences) always; options: the MCM page (ROWE - MCM.esp), and for Mod Organizer 2 "start the
-#   game with the ROWE launcher" and "desktop shortcut" (marker files the plugin acts on at the first
-#   start through MO2: src\mo2setup.cpp, src\launcher\mo2helper.cpp).
+#   game with the ROWE launcher" and "desktop shortcut" (each installs rowe_mo2setup.exe and a marker
+#   file the plugin acts on at the first start through MO2: src\mo2setup.cpp, src\mo2helper.cpp). The
+#   helper is in no other place: without these options nothing of it is installed.
 # - dist\ROWE-<date>-manual.zip: the plain Data layout (everything, no options) to copy by hand.
 # No rowe.ini is included: the plugin writes it on first start (under MO2 it lands in Overwrite).
 #
@@ -14,6 +15,8 @@ $repo = Split-Path -Parent $PSScriptRoot
 $dll = Join-Path $repo "out\rowe.dll"
 if (-not (Test-Path $dll)) { throw "out\rowe.dll not found: run build.bat first" }
 $launcher = Join-Path $repo "out\rowe_launcher.exe"
+$helper = Join-Path $repo "out\rowe_mo2setup.exe"
+if (-not (Test-Path $helper)) { throw "out\rowe_mo2setup.exe not found: run build.bat first" }
 if (-not (Test-Path $launcher)) { throw "out\rowe_launcher.exe not found: run build.bat first" }
 $mcmEsp = Join-Path $repo "out\ROWE - MCM.esp"
 if (-not (Test-Path $mcmEsp)) { throw "out\ROWE - MCM.esp not found: run build.bat (needs Python) first" }
@@ -39,7 +42,9 @@ Organizer 2's installer and "Start the game with the ROWE launcher" ticked, it b
 option by itself: start the game once through MO2 (any executable), close MO2, and from the next
 MO2 start "ROWE Launcher" is selected (and the desktop shortcut is there, if ticked). The log of
 that step is rowe_mo2setup.log in MO2's logs folder; ModOrganizer.ini is backed up next to itself
-first. By hand: add it under Executables (binary: this mod's NVSE\Plugins\rowe_launcher.exe).
+first. That step is done by rowe_mo2setup.exe, which is only installed with those options (it can be
+deleted afterwards). By hand: add the launcher under Executables (binary: this mod's
+NVSE\Plugins\rowe_launcher.exe).
 
 The Mod Configuration Menu (optional): with MCM installed, enable "ROWE - MCM.esp" and the
 settings also appear in the pause menu under Mod Configuration. The plugin only holds the entry MCM
@@ -164,6 +169,8 @@ try {
     Add-File $z[1] $mcmEsp "mcm/ROWE - MCM.esp"
     Add-Text $z[1] "setup_start/NVSE/Plugins/rowe_setup_start.txt" "Installer option: make the ROWE launcher Mod Organizer 2's start option (done once by the plugin, then this file is removed)."
     Add-Text $z[1] "setup_shortcut/NVSE/Plugins/rowe_setup_shortcut.txt" "Installer option: create a desktop shortcut for the ROWE launcher through Mod Organizer 2 (done once by the plugin, then this file is removed)."
+    Add-File $z[1] $helper "setup_start/NVSE/Plugins/rowe_mo2setup.exe"
+    Add-File $z[1] $helper "setup_shortcut/NVSE/Plugins/rowe_mo2setup.exe"
 } finally { $z[1].Dispose() }
 "wrote $($z[0])"
 

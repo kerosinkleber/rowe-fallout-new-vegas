@@ -1,0 +1,4 @@
+#define ROWE_FILE "rowe_launcher.exe"
+#define ROWE_DESC "ROWE launcher for Fallout New Vegas"
+#define ROWE_EXE
+#include "rowe.rc"
