@@ -79,6 +79,7 @@ static void OnMessage(NVSEMessagingInterface::Message* msg)
     case NVSEMessagingInterface::kMessage_DeferredInit:
         Log("message: DeferredInit");
         ReconEngineDeferredInit();
+        Mo2SetupCheck();
         break;
     case NVSEMessagingInterface::kMessage_MainGameLoop: ReconEngineMainLoop(); break;
     case NVSEMessagingInterface::kMessage_PreLoadGame: PhotoExit("a game is loaded"); break;

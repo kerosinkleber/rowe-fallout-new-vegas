@@ -1397,8 +1397,11 @@ static void HudColorFromIni(float c[3])
     if (c[0] + c[1] + c[2] < 0.3f) { c[0] = 1.f; c[1] = 0.71f; c[2] = 0.26f; }
 }
 
+int Mo2SetupMain(int argc, char** argv);  // mo2helper.cpp
+
 int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR, int)
 {
+    if (__argc >= 2 && !_stricmp(__argv[1], "--mo2-setup")) return Mo2SetupMain(__argc, __argv);  // no window
     typedef BOOL(WINAPI * SetCtx)(HANDLE);
     if (SetCtx f = (SetCtx)GetProcAddress(GetModuleHandleA("user32.dll"), "SetProcessDpiAwarenessContext")) f((HANDLE)-4);  // per monitor v2
 

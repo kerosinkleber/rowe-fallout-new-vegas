@@ -248,7 +248,8 @@ void PhotoTick();                     // once per MainGameLoop
 void PhotoToggle();
 void PhotoExit(const char* why);      // ends it (load, main menu, quit) and restores everything
 bool PhotoActive();
-void PhotoInstall();                  // at load: the movement speed detour (Shift in photo mode)
+void Mo2SetupCheck();                 // mo2setup.cpp: the installer's MO2 options, once (DeferredInit)
+void PhotoInstall();                // at load: the movement speed detour (Shift in photo mode)
 void PhotoWheel(long delta);          // mouse wheel in photo mode (DirectInput units, 120 per notch)
 float PhotoZoomFov(float fov);        // the world FOV with photo mode's wheel zoom (fov unchanged outside it)
 void PhotoWriteState(FILE* f);

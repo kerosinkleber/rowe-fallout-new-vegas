@@ -32,16 +32,16 @@ cl /nologo /O2 /MT /EHsc /W3 /std:c++17 /D_CRT_SECURE_NO_WARNINGS /LD /I"%OUT%" 
   "%SRC%\main.cpp" "%SRC%\detour.cpp" "%SRC%\crashlog.cpp" "%SRC%\settings.cpp" "%SRC%\keynames.cpp" "%SRC%\oldnames.cpp" "%SRC%\png.cpp" ^
   "%SRC%\d3d9hook.cpp" "%SRC%\frame.cpp" "%SRC%\screenshot.cpp" "%SRC%\overlay.cpp" ^
   "%SRC%\fov.cpp" "%SRC%\lens.cpp" "%SRC%\mousetrap.cpp" "%SRC%\intros.cpp" "%SRC%\supersample.cpp" "%SRC%\dinput.cpp" "%SRC%\ui.cpp" ^
-  "%SRC%\recon_win32.cpp" "%SRC%\recon_engine.cpp" "%SRC%\gamecmd.cpp" "%SRC%\reshade_addon.cpp" "%SRC%\restart.cpp" "%SRC%\gameui.cpp" "%SRC%\gamefont.cpp" "%SRC%\hudstyle.cpp" "%SRC%\borderless.cpp" "%SRC%\mcm.cpp" "%SRC%\autosave.cpp" "%SRC%\photo.cpp" ^
+  "%SRC%\recon_win32.cpp" "%SRC%\recon_engine.cpp" "%SRC%\gamecmd.cpp" "%SRC%\reshade_addon.cpp" "%SRC%\restart.cpp" "%SRC%\gameui.cpp" "%SRC%\gamefont.cpp" "%SRC%\hudstyle.cpp" "%SRC%\borderless.cpp" "%SRC%\mcm.cpp" "%SRC%\autosave.cpp" "%SRC%\photo.cpp" "%SRC%\mo2setup.cpp" ^
   "%~dp0third_party\imgui\imgui.cpp" "%~dp0third_party\imgui\imgui_draw.cpp" "%~dp0third_party\imgui\imgui_tables.cpp" "%~dp0third_party\imgui\imgui_widgets.cpp" ^
   "%~dp0third_party\imgui\backends\imgui_impl_dx9.cpp" "%~dp0third_party\imgui\backends\imgui_impl_win32.cpp" ^
-  /link user32.lib kernel32.lib dxguid.lib ole32.lib oleaut32.lib windowscodecs.lib shell32.lib || exit /b 1
+  /link user32.lib kernel32.lib advapi32.lib dxguid.lib ole32.lib oleaut32.lib windowscodecs.lib shell32.lib || exit /b 1
 echo Built %OUT%\rowe.dll
 
 rem The launcher (rowe_launcher.exe): save picker and game settings, same look as the F8 menu.
 if not exist "%OUT%\launcher" mkdir "%OUT%\launcher"
 cl /nologo /O2 /MT /EHsc /W3 /std:c++17 /D_CRT_SECURE_NO_WARNINGS /I"%SRC%" /I"%~dp0third_party\imgui" /I"%~dp0third_party\fonts" /DIMGUI_IMPL_WIN32_DISABLE_GAMEPAD /D"ImDrawIdx=unsigned int" /Fo"%OUT%\launcher\\" /Fe"%OUT%\rowe_launcher.exe" ^
-  "%SRC%\launcher\launcher.cpp" "%SRC%\launcher\gamefiles.cpp" "%SRC%\keynames.cpp" "%SRC%\oldnames.cpp" "%SRC%\hudstyle.cpp" "%SRC%\gamefont.cpp" ^
+  "%SRC%\launcher\launcher.cpp" "%SRC%\launcher\gamefiles.cpp" "%SRC%\launcher\mo2helper.cpp" "%SRC%\keynames.cpp" "%SRC%\oldnames.cpp" "%SRC%\hudstyle.cpp" "%SRC%\gamefont.cpp" ^
   "%~dp0third_party\imgui\imgui.cpp" "%~dp0third_party\imgui\imgui_draw.cpp" "%~dp0third_party\imgui\imgui_tables.cpp" "%~dp0third_party\imgui\imgui_widgets.cpp" ^
   "%~dp0third_party\imgui\backends\imgui_impl_dx9.cpp" "%~dp0third_party\imgui\backends\imgui_impl_win32.cpp" ^
   /link /SUBSYSTEM:WINDOWS user32.lib gdi32.lib kernel32.lib advapi32.lib shell32.lib ole32.lib d3d9.lib dwmapi.lib || exit /b 1
