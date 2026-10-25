@@ -195,7 +195,7 @@ static const char* Title(int id)
     case kOptAutosave: return "Autosave";
     case kOptAutosaveMinutes: return "Autosave every (minutes of play)";
     case kOptAutosaveSlots: return "Autosave slots";
-    case kOptPhotoFast: return "Photo mode: dash speed (Shift)";
+    case kOptPhotoFast: return "Photo mode: fast speed (Shift)";
     case kOptPhotoHud: return "Photo mode: hide the HUD";
     case kOptPhotoFreeze: return "Photo mode: freeze people";
     }
@@ -228,7 +228,7 @@ static const char* Help(int id)
     case kOptAutosaveMinutes: return "Minutes of play between autosaves.";
     case kOptAutosaveSlots: return "How many autosaves are kept: the oldest is overwritten.";
     case kOptPhotoFast: return "Photo mode (its shortcut, F10 by default, is set in the F8 menu or the launcher): how much "
-                               "fast the camera flies while Shift is held (times the free camera's speed), when you let go you are moved there.";
+                               "faster you fly while Shift is held.";
     case kOptPhotoHud: return "Hides the HUD while photo mode is on.";
     case kOptPhotoFreeze: return "Stops people and creatures where they are while photo mode is on (weather and effects go on).";
     }

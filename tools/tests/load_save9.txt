@@ -1,0 +1,8 @@
+# Loads Save 9 (Goodsprings) and stops there: the next steps come one by one through rowe_cmd.txt.
+log load9: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 9   Courier  Goodsprings  00 06 48"
+waitgameplay 3600
+wait 60
+log loaded

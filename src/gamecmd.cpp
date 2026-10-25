@@ -17,6 +17,7 @@
 //                    shotmenu              screenshot including the settings menu
 //                    usershot              screenshot as the screenshot key takes it (screenshotdir, size, format)
 //                    photo                 photo mode on / off, as the photo shortcut
+//                    tiles <menu id>       the menu's tile tree with its values to rowe_tiles.txt
 //                    overlay <action>      settings menu: open, close, up, down, left, right, home
 //                    set <key> <value>     change a setting (fov, zoomfov, lens, pipboyfov, supersample, mousetrap, skipintros, scopelens)
 //                    reload                re-read rowe.ini
@@ -193,6 +194,7 @@ static void Run(char* cmd)
     else if (lstrcmpiA(cmd, "shotmenu") == 0) ScreenshotRequest(kShotWithMenu);
     else if (lstrcmpiA(cmd, "usershot") == 0) ScreenshotRequest(kShotUser);
     else if (lstrcmpiA(cmd, "photo") == 0) PhotoToggle();
+    else if (lstrcmpiA(cmd, "tiles") == 0 && arg) UiDumpTiles(atoi(arg));
     else if (lstrcmpiA(cmd, "overlay") == 0 && arg) OverlayCommand(arg);
     else if (lstrcmpiA(cmd, "reload") == 0) SettingsLoad();
     else if (lstrcmpiA(cmd, "devicelost") == 0) D3DSimulateDeviceLost();

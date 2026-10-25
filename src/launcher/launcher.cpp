@@ -998,13 +998,12 @@ static void DrawModRows()
         btn[sizeof(btn) - 1] = 0;
         if (ImGui::Button(btn, ImVec2(-FLT_MIN, 0))) g_captureInto = g_captureInto == &g_photoKey ? nullptr : &g_photoKey;
     }
-    LabelCell("Photo dash speed", "Photo mode: how fast the camera flies while Shift is held (times the free camera's "
-                                  "speed); when you let go you are moved there.", kIniNone);
+    LabelCell("Photo fast speed", "How much faster you fly in photo mode while Shift is held.", kIniNone);
     HudSliderInt("##photofast", &g_photoFast, 1, 50, "%dx");
     if (ImGui::IsItemDeactivatedAfterEdit()) {
         char v[16], what[64];
         wsprintfA(v, "%d", g_photoFast);
-        wsprintfA(what, "Photo dash speed %dx", g_photoFast);
+        wsprintfA(what, "Photo fast speed %dx", g_photoFast);
         WriteMod("photofast", v, what);
     }
     LabelCell("Photo: hide the HUD", "Hides the HUD while photo mode is on.", kIniNone);

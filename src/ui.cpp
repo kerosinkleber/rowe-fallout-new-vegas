@@ -408,6 +408,46 @@ bool ScopeView()
     return hud && !IsBadReadPtr(hud + 0x1FC, 1) && hud[0x1FC];
 }
 
+// Tile values (Tile +0x10: BSSimpleArray {vtable, data +0x14, size +0x18}): each Value is {trait
+// id, parent, num +0x08, str +0x0C, ...}. Children: a DList at +0x04 (head, tail, count) of nodes
+// {next, prev, tile}.
+static void DumpTile(FILE* f, BYTE* tile, int depth, int* budget)
+{
+    if (!tile || IsBadReadPtr(tile, 0x2C) || --*budget < 0) return;
+    fprintf(f, "%*s'%s'", depth * 2, "", TileName(tile));
+    BYTE** values = *(BYTE***)(tile + 0x14);
+    DWORD count = *(DWORD*)(tile + 0x18);
+    if (values && count < 400 && !IsBadReadPtr(values, count * 4))
+        for (DWORD i = 0; i < count; ++i) {
+            BYTE* v = values[i];
+            if (!v || IsBadReadPtr(v, 0x10)) continue;
+            const char* s = *(const char**)(v + 0x0C);
+            if (s && !IsBadStringPtrA(s, 256) && *s) fprintf(f, " %lu=\"%.120s\"", *(DWORD*)v, s);
+            else fprintf(f, " %lu=%g", *(DWORD*)v, *(float*)(v + 0x08));
+        }
+    fprintf(f, "\n");
+    if (depth >= 16) return;
+    BYTE* node = *(BYTE**)(tile + 0x04);
+    for (int n = 0; node && n < 500 && !IsBadReadPtr(node, 12); ++n, node = *(BYTE**)node) DumpTile(f, *(BYTE**)(node + 8), depth + 1, budget);
+}
+
+// Writes the tile tree of menu `id` (the engine's menu tiles: [0x011F350C] indexed by id - 1001)
+// with each tile's values (trait id = number or "text") to rowe_tiles.txt, for the tiles command.
+void UiDumpTiles(int id)
+{
+    char path[MAX_PATH];
+    wsprintfA(path, "%srowe_tiles.txt", ModDir());
+    FILE* f = fopen(path, "w");
+    if (!f) return;
+    BYTE** menus = *(BYTE***)0x011F350C;
+    BYTE* tile = id >= 1001 && id < 1100 && menus && !IsBadReadPtr(menus + (id - 1001), 4) ? menus[id - 1001] : nullptr;
+    fprintf(f, "menu %d: tile %p, visible %d\n", id, tile, id > 0 && id < 1200 ? ((const BYTE*)0x011F308F)[id] : 0);
+    int budget = 3000;
+    DumpTile(f, tile, 0, &budget);
+    fclose(f);
+    Log("cmd: tiles of menu %d written to rowe_tiles.txt", id);
+}
+
 // Logs the interface scene below the node named `name` ("-": its root, "world": the world scene
 // graph), for the nodes command.
 void UiDumpNodes(const char* name, int depth)

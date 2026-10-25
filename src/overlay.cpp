@@ -590,9 +590,9 @@ static void DrawMenu(int backW, int backH)
                 ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, labelW);
                 ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch);
                 LabelCell("Photo mode", "You fly, invisible, through walls, and nothing can detect you; the world loads as you go. "
-                                        "Move with the movement keys where you look. Hold Shift to dash: a fast free camera, and "
-                                        "when you let go you are moved there. The shortcut ends it and puts you back where you "
-                                        "started; opening a menu ends it too, and Quicksave is off while it is on.");
+                                        "Move with the movement keys where you look, hold Shift to fly faster. The shortcut ends it "
+                                        "and puts you back where you started; opening a menu ends it too, and Quicksave is off "
+                                        "while it is on.");
                 ImGui::BeginDisabled(!PhotoActive() && !InGameplay());
                 if (ImGui::Button(PhotoActive() ? "end###photogo" : "start###photogo")) {
                     PhotoToggle();
@@ -606,7 +606,7 @@ static void DrawMenu(int backW, int backH)
                 bool capturingPhoto = s_capturingKey && s_captureInto == &g_settings.photoKey;
                 _snprintf(photoBtn, sizeof(photoBtn), capturingPhoto ? "press a key...###photokey" : "%s###photokey", photoKey);
                 if (ImGui::Button(photoBtn, ImVec2(-FLT_MIN, 0))) { s_capturingKey = 1; s_captureInto = &g_settings.photoKey; }
-                LabelCell("Dash speed", "How fast the camera flies while Shift is held, times the free camera's speed.");
+                LabelCell("Fast speed", "How much faster you fly while Shift is held.");
                 HudSliderInt("##photofast", &g_settings.photoFast, 1, 50, "%dx");
                 if (ImGui::IsItemDeactivatedAfterEdit()) Changed();
                 LabelCell("Hide the HUD", "Hides the HUD while photo mode is on.");

@@ -127,6 +127,7 @@ extern "C" __declspec(dllexport) bool NVSEPlugin_Load(const NVSEInterface* nvse)
     DinputInstall();
     UiInstall();
     ReconEngineInstall();
+    PhotoInstall();
     ReshadeAddonInit();
     Log("Load: done");
     return true;

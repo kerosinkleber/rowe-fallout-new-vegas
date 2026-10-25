@@ -184,6 +184,7 @@ void UiInstall();
 void UiWriteState(FILE* f);
 void UiFrame();                 // from Present
 void UiDumpNodes(const char* name, int depth);
+void UiDumpTiles(int id);          // menu id's tile tree with values to rowe_tiles.txt
 bool ScopeView();               // the HUD shows a scope overlay (aiming a scoped weapon)
 // lens.cpp: the Pip-Boy screen is the active menu (fully open, nothing over it).
 bool PipboyScreenActive();
@@ -247,5 +248,6 @@ void PhotoTick();                     // once per MainGameLoop
 void PhotoToggle();
 void PhotoExit(const char* why);      // ends it (load, main menu, quit) and restores everything
 bool PhotoActive();
+void PhotoInstall();                  // at load: the movement speed detour (Shift in photo mode)
 void PhotoWriteState(FILE* f);
 void GameCmdWriteState(FILE* f);
