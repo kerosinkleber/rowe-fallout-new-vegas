@@ -1,0 +1,40 @@
+# Experiment: flying speed with collision off (tcl): normal, SpeedMult x5 (with the carry weight
+# refresh) and fMoveRunMult x5 (Save 9, Goodsprings). Positions are read from the state file between
+# the phases. Nothing is saved.
+log speed: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 9   Courier  Goodsprings  00 06 48"
+waitgameplay 3600
+wait 150
+con tcl
+con player.SetActorAlpha 0
+con tdetect
+wait 30
+log p0
+keydown w
+wait 300
+keyup w
+wait 30
+log p1
+con player.SetAV SpeedMult 500
+con player.ModAV CarryWeight 1
+con player.ModAV CarryWeight -1
+wait 10
+keydown w
+wait 300
+keyup w
+wait 30
+log p2
+con player.SetAV SpeedMult 100
+con player.ModAV CarryWeight 1
+con player.ModAV CarryWeight -1
+con SetGS fMoveRunMult 20
+wait 10
+keydown w
+wait 300
+keyup w
+wait 30
+log p3
+con SetGS fMoveRunMult 4
+wait 3600

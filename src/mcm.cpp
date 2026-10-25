@@ -38,8 +38,8 @@ struct NVSEScriptInterface {
 };
 // NVSEArrayVarInterface::Element: a union (string, array, form, double) and its type.
 struct ScriptResult {
-    union { char* str; double num; };
-    UINT8 type;  // 1 number, 3 string
+    union { char* str; void* form; double num; };
+    UINT8 type;  // 1 number, 2 form, 3 string
 };
 
 static NVSEScriptInterface* s_script;
@@ -113,6 +113,23 @@ float ScriptValue(const char* expression)
     return (float)r.num;
 }
 
+void* ScriptRef(const char* statements)
+{
+    if (!s_script) return nullptr;
+    Script* s = Snippet(std::string("ref ") + statements,
+                        std::string("ref rOut\nref rBase\nbegin function {}\n") + statements + "\nSetFunctionValue rOut\nend\n");
+    ScriptResult r = {};
+    if (!s || !s_script->CallFunction(s, nullptr, nullptr, &r, 0) || r.type != 2) return nullptr;
+    return r.form;
+}
+
+bool ScriptWithRef(const char* statement, void* ref)
+{
+    if (!s_script || !ref) return false;
+    Script* s = Snippet(std::string("with ref ") + statement, std::string("ref rArg\nbegin function {rArg}\n") + statement + "\nend\n");
+    return s && s_script->CallFunctionAlt(s, nullptr, 1, ref);
+}
+
 static void SetF(const char* path, float v)
 {
     Script* s = Snippet(std::string("set ") + path, "float v\nbegin function {v}\nSetUIFloat " + Quoted(path) + " v\nend\n");
@@ -178,9 +195,9 @@ static const char* Title(int id)
     case kOptAutosave: return "Autosave";
     case kOptAutosaveMinutes: return "Autosave every (minutes of play)";
     case kOptAutosaveSlots: return "Autosave slots";
-    case kOptPhotoFast: return "Photo mode: fast speed (Shift)";
+    case kOptPhotoFast: return "Photo mode: dash speed (Shift)";
     case kOptPhotoHud: return "Photo mode: hide the HUD";
-    case kOptPhotoFreeze: return "Photo mode: freeze the world";
+    case kOptPhotoFreeze: return "Photo mode: freeze people";
     }
     return "";
 }
@@ -211,9 +228,9 @@ static const char* Help(int id)
     case kOptAutosaveMinutes: return "Minutes of play between autosaves.";
     case kOptAutosaveSlots: return "How many autosaves are kept: the oldest is overwritten.";
     case kOptPhotoFast: return "Photo mode (its shortcut, F10 by default, is set in the F8 menu or the launcher): how much "
-                               "faster the camera flies while Shift is held.";
+                               "fast the camera flies while Shift is held (times the free camera's speed), when you let go you are moved there.";
     case kOptPhotoHud: return "Hides the HUD while photo mode is on.";
-    case kOptPhotoFreeze: return "Stops everything (people, weather, effects) while photo mode is on.";
+    case kOptPhotoFreeze: return "Stops people and creatures where they are while photo mode is on (weather and effects go on).";
     }
     return "";
 }

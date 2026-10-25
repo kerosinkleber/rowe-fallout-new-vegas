@@ -17,6 +17,7 @@ DWORD MainThreadId();            // the engine's main thread (from OSGlobals), 0
 HWND GameWindow();               // the main window (OSGlobals), null before it exists
 bool GameInFront();              // a window of this process is the foreground window
 bool InGameplay();               // no menu, not loading, the world drawn in the last few frames
+bool MenuOpen();                 // in a game, a menu open (not the loading screen)
 
 // detour.cpp
 // Returns the trampoline (call it to run the original), or null if not installed.
@@ -66,7 +67,7 @@ struct Settings {
     int autosaveNext = 1;                // the slot the next autosave goes to
     int photoKey = VK_F10;               // photo mode shortcut (key | kShortcutCtrl / kShortcutAlt)
     int photoFast = 5;                   // fly speed factor while Shift is held (1-50)
-    bool photoFreeze = false;            // freeze the world in photo mode
+    bool photoFreeze = false;            // stop people and creatures in photo mode
     bool photoHud = true;                // hide the HUD in photo mode
     int devFullscreen = -1;  // [dev] fullscreen: -1 = the game's own bFull Screen
     int devWidth = 0, devHeight = 0;  // [dev] size: window size for this start, 0 = the game's own
@@ -235,11 +236,13 @@ void GameCmdTick();              // once per MainGameLoop
 void McmInit(void* scriptInterface);  // xNVSE's NVSEScriptInterface (null: no MCM page)
 void McmTick();                       // once per MainGameLoop
 float ScriptValue(const char* expression);  // an xNVSE script expression's value (0 without the script interface)
+void* ScriptRef(const char* statements);     // the reference script statements leave in rOut (rBase is a spare ref), or null
+bool ScriptWithRef(const char* statement, void* ref);  // runs a statement with that reference as rArg (e.g. "player.MoveTo rArg")
 // autosave.cpp: saves every N minutes of play into rotating slots.
 void AutosaveTick();                  // once per MainGameLoop
 void AutosaveReset(const char* why);  // a game was loaded, started or saved: count from 0
 void AutosaveWriteState(FILE* f);
-// photo.cpp: photo mode (fly camera, player invisible and undetectable, Shift = faster).
+// photo.cpp: photo mode (the player flies, invisible and undetectable, Shift = faster).
 void PhotoTick();                     // once per MainGameLoop
 void PhotoToggle();
 void PhotoExit(const char* why);      // ends it (load, main menu, quit) and restores everything

@@ -1,0 +1,48 @@
+# Experiment: what changes the flying speed with collision off (tcl), and whether PositionWorld
+# works shortly after the collision is back (Save 9, Goodsprings). W is held through xNVSE; the
+# player's position is sampled from rowe_state.txt from outside. Nothing is saved.
+log tcl2: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 9   Courier  Goodsprings  00 06 48"
+waitgameplay 3600
+wait 150
+waitfocus 3600
+wait 120
+log start
+con tcl
+con player.SetActorAlpha 0
+con tdetect
+con TapControl 13
+wait 60
+keydown w
+log A base
+wait 240
+con player.SetAV SpeedMult 500
+log B speedmult
+wait 240
+con TapControl 10
+wait 5
+con TapControl 10
+log C alwaysrun toggled
+wait 240
+con player.ModAV CarryWeight 1
+con player.ModAV CarryWeight -1
+log D carryweight
+wait 240
+keydown lshift
+log E shift held
+wait 240
+keyup lshift
+log F shift released
+wait 240
+keyup w
+con player.SetAV SpeedMult 100
+con tcl
+wait 10
+log G pw sent
+con player.PositionWorld -72043 -3694 8211 165 000DA726
+wait 120
+log H after pw
+shot
+wait 3600

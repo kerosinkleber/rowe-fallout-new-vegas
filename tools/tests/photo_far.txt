@@ -1,0 +1,58 @@
+# Photo mode far from where it starts (Save 9, Goodsprings): the player flies with collision off,
+# so the world loads as when walking. W is held through xNVSE; the dash holds Shift both through
+# xNVSE (what the game sees) and from outside (what photo mode reads: the watcher script holds it
+# while "fast phase" is the last log line): the free camera flies fast, and on release the player
+# is moved there. Then photo mode ends and the player must be back at the start; then it is started
+# again and the pause menu must end it. Shots on the way. Nothing is saved.
+log photo_far: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 9   Courier  Goodsprings  00 06 48"
+waitgameplay 3600
+wait 150
+waitfocus 3600
+wait 30
+waitgameplay 3600
+wait 120
+waitfocus 3600
+log start
+photo
+wait 60
+waitfocus 3600
+log slow phase
+keydown w
+wait 300
+shot
+log fast phase
+keydown lshift
+wait 600
+shot
+keyup lshift
+log fast done
+wait 60
+keyup w
+wait 120
+log landed
+shot
+keydown w
+wait 300
+keyup w
+log flown on
+wait 60
+log far
+shot
+photo
+wait 300
+log back
+shot
+wait 120
+photo
+wait 60
+log menu test
+key esc
+wait 90
+key esc
+wait 120
+log after menu
+shot
+wait 3600

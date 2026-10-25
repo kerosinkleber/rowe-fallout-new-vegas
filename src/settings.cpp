@@ -35,7 +35,7 @@
 //   autosaveslots=3  the saves "ROWE Autosave 1"..N are used in turn (1-10); autosavenext= the next
 //   photokey=F10     photo mode shortcut, a key name as screenshotkey, optionally with Ctrl+ / Alt+
 //   photofast=5      photo mode: the fly speed while Shift is held, times the normal speed (1-50)
-//   photofreeze=0    photo mode: 1 freezes the world
+//   photofreeze=0    photo mode: 1 stops people and creatures
 //   photohud=1       photo mode: 1 hides the HUD
 //
 // Section [dev] (testing only, FalloutPrefs.ini is not changed):

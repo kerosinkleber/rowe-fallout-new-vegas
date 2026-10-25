@@ -58,6 +58,12 @@ bool InGameplay()
            *(BYTE**)0x011DEA3C && FrameCount() - LastWorldDrawFrame() < 5;
 }
 
+bool MenuOpen()
+{
+    typedef bool(__cdecl * IsMenuModeFn)();
+    return *(BYTE**)0x011DEA3C && ((IsMenuModeFn)0x00702360)() && !((BYTE*)0x011F308F)[1007];
+}
+
 bool GameInFront()
 {
     DWORD pid = 0;

@@ -1,0 +1,23 @@
+# Experiment: flying with collision off (tcl) instead of the fly camera, third person, invisible,
+# undetected (Save 9, Goodsprings). W is held through xNVSE; the camera is tilted up from outside.
+# Nothing is saved.
+log tcl: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 9   Courier  Goodsprings  00 06 48"
+waitgameplay 3600
+wait 150
+log start
+con tcl
+con player.SetActorAlpha 0
+con tdetect
+con TapControl 13
+wait 60
+log flying
+keydown w
+wait 600
+keyup w
+wait 20
+log far
+shot
+wait 3600

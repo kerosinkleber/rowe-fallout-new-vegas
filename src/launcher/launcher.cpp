@@ -986,7 +986,7 @@ static void DrawModRows()
     HudTip("How many autosaves are kept (1-10): the oldest is overwritten.");
     ImGui::EndDisabled();
     // Photo mode: its shortcut, the fast speed, the HUD and the frozen world.
-    LabelCell("Photo mode shortcut", "Starts and ends photo mode in the game (a flying camera; the player invisible and "
+    LabelCell("Photo mode shortcut", "Starts and ends photo mode in the game (you fly, invisible and "
                                      "undetectable). Click, then press the key, with Ctrl and/or Alt if you like (Shift is the "
                                      "speed key; Ctrl is also the game's sneak key, Alt is free). Esc cancels.",
               kIniNone);
@@ -998,19 +998,20 @@ static void DrawModRows()
         btn[sizeof(btn) - 1] = 0;
         if (ImGui::Button(btn, ImVec2(-FLT_MIN, 0))) g_captureInto = g_captureInto == &g_photoKey ? nullptr : &g_photoKey;
     }
-    LabelCell("Photo fast speed", "How much faster the photo mode camera flies while Shift is held.", kIniNone);
+    LabelCell("Photo dash speed", "Photo mode: how fast the camera flies while Shift is held (times the free camera's "
+                                  "speed); when you let go you are moved there.", kIniNone);
     HudSliderInt("##photofast", &g_photoFast, 1, 50, "%dx");
     if (ImGui::IsItemDeactivatedAfterEdit()) {
         char v[16], what[64];
         wsprintfA(v, "%d", g_photoFast);
-        wsprintfA(what, "Photo fast speed %dx", g_photoFast);
+        wsprintfA(what, "Photo dash speed %dx", g_photoFast);
         WriteMod("photofast", v, what);
     }
     LabelCell("Photo: hide the HUD", "Hides the HUD while photo mode is on.", kIniNone);
     if (HudCheckbox("##photohud", &g_photoHud)) WriteMod("photohud", g_photoHud ? "1" : "0", g_photoHud ? "Photo mode hides the HUD" : "Photo mode keeps the HUD");
-    LabelCell("Photo: freeze the world", "Stops everything (people, weather, effects) while photo mode is on.", kIniNone);
+    LabelCell("Photo: freeze people", "Stops people and creatures where they are while photo mode is on (weather and effects go on).", kIniNone);
     if (HudCheckbox("##photofreeze", &g_photoFreeze))
-        WriteMod("photofreeze", g_photoFreeze ? "1" : "0", g_photoFreeze ? "Photo mode freezes the world" : "Photo mode keeps the world running");
+        WriteMod("photofreeze", g_photoFreeze ? "1" : "0", g_photoFreeze ? "Photo mode freezes people" : "Photo mode lets people move");
     LabelCell("Launcher background", "The game's loading screens as a slideshow behind this launcher (also those of loading "
                                      "screen replacers). Stored in rowe.ini, [launcher] slideshow=.",
               kIniNone);

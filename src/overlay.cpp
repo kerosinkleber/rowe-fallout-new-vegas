@@ -589,8 +589,10 @@ static void DrawMenu(int backW, int backH)
             if (ImGui::BeginTable("photo", 2, tf)) {
                 ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, labelW);
                 ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch);
-                LabelCell("Photo mode", "A free flying camera: the player is invisible and nothing can detect them. Move with "
-                                        "the movement keys and the mouse, hold Shift to fly faster. The shortcut ends it.");
+                LabelCell("Photo mode", "You fly, invisible, through walls, and nothing can detect you; the world loads as you go. "
+                                        "Move with the movement keys where you look. Hold Shift to dash: a fast free camera, and "
+                                        "when you let go you are moved there. The shortcut ends it and puts you back where you "
+                                        "started; opening a menu ends it too, and Quicksave is off while it is on.");
                 ImGui::BeginDisabled(!PhotoActive() && !InGameplay());
                 if (ImGui::Button(PhotoActive() ? "end###photogo" : "start###photogo")) {
                     PhotoToggle();
@@ -604,12 +606,12 @@ static void DrawMenu(int backW, int backH)
                 bool capturingPhoto = s_capturingKey && s_captureInto == &g_settings.photoKey;
                 _snprintf(photoBtn, sizeof(photoBtn), capturingPhoto ? "press a key...###photokey" : "%s###photokey", photoKey);
                 if (ImGui::Button(photoBtn, ImVec2(-FLT_MIN, 0))) { s_capturingKey = 1; s_captureInto = &g_settings.photoKey; }
-                LabelCell("Fast speed", "How much faster the camera flies while Shift is held.");
+                LabelCell("Dash speed", "How fast the camera flies while Shift is held, times the free camera's speed.");
                 HudSliderInt("##photofast", &g_settings.photoFast, 1, 50, "%dx");
                 if (ImGui::IsItemDeactivatedAfterEdit()) Changed();
                 LabelCell("Hide the HUD", "Hides the HUD while photo mode is on.");
                 if (HudCheckbox("##photohud", &g_settings.photoHud)) Changed();
-                LabelCell("Freeze the world", "Stops everything (people, weather, effects) while photo mode is on.");
+                LabelCell("Freeze people", "Stops people and creatures where they are while photo mode is on (weather and effects go on).");
                 if (HudCheckbox("##photofreeze", &g_settings.photoFreeze)) Changed();
                 ImGui::EndTable();
                 HudTableFrame(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), labelW);
