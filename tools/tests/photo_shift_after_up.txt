@@ -1,0 +1,39 @@
+# Photo mode: Shift must stay fast in every direction after flying up fast (a bug in the MO2
+# install: after Shift + Space only "down" was fast). Save "ROWE Photo Test"; the watcher script
+# holds the keys by the last log line ("fast forward" / "fast forward again": Shift, "fast up":
+# Space + Shift, "slow forward": nothing), W is held through xNVSE in the forward phases. The
+# forward speed with Shift must be the same before and after the fast climb.
+log photo_shift_after_up: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+waitgameplay 3600
+wait 150
+waitfocus 3600
+wait 120
+log start
+photo
+wait 60
+keydown w
+wait 30
+log slow forward
+wait 180
+log fast forward
+wait 180
+keyup w
+log fast up
+wait 180
+log pause
+wait 30
+keydown w
+wait 30
+log fast forward again
+wait 180
+log slow forward again
+wait 180
+keyup w
+log ended
+photo
+wait 240
+log done
+wait 300

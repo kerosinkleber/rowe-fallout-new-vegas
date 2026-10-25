@@ -8,8 +8,9 @@
 // and moving the player after it with SetPos leaves their cell behind and crashed the game).
 // Holding Shift flies photofast times faster. The movement update (0x895110) asks the walk or run
 // speed (0x884DC0 / 0x884EB0) each frame and moves the player by it, collision off too; detours on
-// those two scale the player's result for just those three calls (0x896BFD, 0x896C0D, 0x896C6E)
-// while Shift is held. Nothing else changes speed: the movement settings, SpeedMult and the
+// those two scale the player's result for just its six calls while Shift is held: three when it
+// picks a new movement animation (0x896BFD, 0x896C0D, 0x896C6E), two for the one already playing
+// (0x896F7A, 0x896F8A: taken after flying up or down, for example) and one more walk (0x896544). Nothing else changes speed: the movement settings, SpeedMult and the
 // general GetMovementSpeed (0x8A0B10, which only xNVSE asks for the player) are not on that path.
 // The game's Run control (Shift) is off while photo mode is on, or Shift would also switch to
 // walking. Space flies up and Ctrl down (Jump and Sneak are off while it is on): see
@@ -49,12 +50,20 @@ static SpeedFn s_walkSpeed, s_runSpeed;
 static float s_speedScale = 1.f;  // set and read on the game thread
 static DWORD s_scaledCalls;
 
+// The return addresses of the movement update's six walk / run speed calls (all store the speed it
+// moves by, [ebp-0x50]).
+static const DWORD kMoveSpeedCalls[] = {0x00896549, 0x00896C02, 0x00896C12, 0x00896C73, 0x00896F7F, 0x00896F8F};
+static DWORD s_scaledBy[6];  // per call (state file)
+
 static float Scaled(float v, void* actor, DWORD ret)
 {
-    if (s_speedScale != 1.f && actor == *(void**)0x011DEA3C && (ret == 0x00896C02 || ret == 0x00896C12 || ret == 0x00896C73)) {
-        ++s_scaledCalls;
-        return v * s_speedScale;
-    }
+    if (s_speedScale == 1.f || actor != *(void**)0x011DEA3C) return v;
+    for (int i = 0; i < 6; ++i)
+        if (ret == kMoveSpeedCalls[i]) {
+            ++s_scaledBy[i];
+            ++s_scaledCalls;
+            return v * s_speedScale;
+        }
     return v;
 }
 
@@ -319,5 +328,7 @@ void PhotoWriteState(FILE* f)
     fprintf(f, "photo: cell %08lX; noclip %d, marker %p, move back %s (tries %d); speed detours %s, scale %.2f, scaled calls %lu; up/down %d (%s), %lu steps\n",
             CellId(), s_noclip, s_marker, s_backAt ? "pending" : "no", s_backTries, s_walkSpeed && s_runSpeed ? "installed" : "MISSING",
             s_speedScale, s_scaledCalls, s_vertical, s_setPosition ? "installed" : "MISSING", s_verticalCalls);
+    fprintf(f, "photo: scaled per call %lu %lu %lu %lu %lu %lu\n", s_scaledBy[0], s_scaledBy[1], s_scaledBy[2], s_scaledBy[3], s_scaledBy[4],
+            s_scaledBy[5]);
     fprintf(f, "photo: zoom %.3f (target %.3f), fov %.1f -> %.1f\n", s_zoom, s_zoomTarget, s_zoomShown, s_zoomFov);
 }
