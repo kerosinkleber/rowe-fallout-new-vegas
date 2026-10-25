@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include "fnvfov.h"
+#include "mo2setup.h"
 #include "nvse.h"
 
 static char g_dir[MAX_PATH];
@@ -79,7 +80,7 @@ static void OnMessage(NVSEMessagingInterface::Message* msg)
     case NVSEMessagingInterface::kMessage_DeferredInit:
         Log("message: DeferredInit");
         ReconEngineDeferredInit();
-        Mo2SetupCheck();
+        Mo2SetupStart(ModDir(), Log);  // the installer's MO2 options, once
         break;
     case NVSEMessagingInterface::kMessage_MainGameLoop: ReconEngineMainLoop(); break;
     case NVSEMessagingInterface::kMessage_PreLoadGame: PhotoExit("a game is loaded"); break;

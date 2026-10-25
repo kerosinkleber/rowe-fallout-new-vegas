@@ -23,6 +23,7 @@
 #include "gamefiles.h"
 #include "hudstyle.h"
 #include "keynames.h"
+#include "mo2setup.h"
 #include "backends/imgui_impl_dx9.h"
 #include "backends/imgui_impl_win32.h"
 #include "sharetechmono_ttf.h"
@@ -1399,6 +1400,22 @@ static void HudColorFromIni(float c[3])
 
 int Mo2SetupMain(int argc, char** argv);  // mo2helper.cpp
 
+// The launcher's own log (only the MO2 setup writes to it): rowe_launcher.log next to the plugin.
+static void LauncherLog(const char* fmt, ...)
+{
+    FILE* f = fopen((g_paths.game + "Data\\NVSE\\Plugins\\rowe_launcher.log").c_str(), "a");
+    if (!f) return;
+    SYSTEMTIME t;
+    GetLocalTime(&t);
+    fprintf(f, "%04d-%02d-%02d %02d:%02d:%02d ", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
+    va_list a;
+    va_start(a, fmt);
+    vfprintf(f, fmt, a);
+    va_end(a);
+    fprintf(f, "\n");
+    fclose(f);
+}
+
 int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR, int)
 {
     if (__argc >= 2 && !_stricmp(__argv[1], "--mo2-setup")) return Mo2SetupMain(__argc, __argv);  // no window
@@ -1425,6 +1442,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE, LPSTR, int)
     Reload();
     LoadSaves();
     LoadPresets();
+    Mo2SetupStart((g_paths.game + "Data\\NVSE\\Plugins\\").c_str(), LauncherLog);  // the installer's MO2 options, once
     srand(GetTickCount());
 
     WNDCLASSEXA wc = {sizeof(wc), CS_CLASSDC, WndProc, 0, 0, inst, nullptr, LoadCursor(nullptr, IDC_ARROW), nullptr, nullptr, "rowe_launcher", nullptr};

@@ -41,7 +41,7 @@ echo Built %OUT%\rowe.dll
 rem The launcher (rowe_launcher.exe): save picker and game settings, same look as the F8 menu.
 if not exist "%OUT%\launcher" mkdir "%OUT%\launcher"
 cl /nologo /O2 /MT /EHsc /W3 /std:c++17 /D_CRT_SECURE_NO_WARNINGS /I"%SRC%" /I"%~dp0third_party\imgui" /I"%~dp0third_party\fonts" /DIMGUI_IMPL_WIN32_DISABLE_GAMEPAD /D"ImDrawIdx=unsigned int" /Fo"%OUT%\launcher\\" /Fe"%OUT%\rowe_launcher.exe" ^
-  "%SRC%\launcher\launcher.cpp" "%SRC%\launcher\gamefiles.cpp" "%SRC%\launcher\mo2helper.cpp" "%SRC%\keynames.cpp" "%SRC%\oldnames.cpp" "%SRC%\hudstyle.cpp" "%SRC%\gamefont.cpp" ^
+  "%SRC%\launcher\launcher.cpp" "%SRC%\launcher\gamefiles.cpp" "%SRC%\launcher\mo2helper.cpp" "%SRC%\mo2setup.cpp" "%SRC%\keynames.cpp" "%SRC%\oldnames.cpp" "%SRC%\hudstyle.cpp" "%SRC%\gamefont.cpp" ^
   "%~dp0third_party\imgui\imgui.cpp" "%~dp0third_party\imgui\imgui_draw.cpp" "%~dp0third_party\imgui\imgui_tables.cpp" "%~dp0third_party\imgui\imgui_widgets.cpp" ^
   "%~dp0third_party\imgui\backends\imgui_impl_dx9.cpp" "%~dp0third_party\imgui\backends\imgui_impl_win32.cpp" ^
   /link /SUBSYSTEM:WINDOWS user32.lib gdi32.lib kernel32.lib advapi32.lib shell32.lib ole32.lib d3d9.lib dwmapi.lib || exit /b 1
