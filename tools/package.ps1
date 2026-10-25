@@ -117,7 +117,7 @@ $moduleXml = @'
               </typeDescriptor>
             </plugin>
             <plugin name="Desktop shortcut">
-              <description>A desktop shortcut "Fallout New Vegas (ROWE)" that starts the ROWE launcher through Mod Organizer 2 (created at the same time as the start option above). Mod Organizer 2 only.</description>
+              <description>A desktop shortcut "Fallout New Vegas (ROWE)" that starts the ROWE launcher through Mod Organizer 2 (created at the same time as the start option above, once you close MO2). Windows will ask for permission when it is created: allow it, or there is no shortcut. Mod Organizer 2 only.</description>
               <files>
                 <folder source="setup_shortcut" destination="" />
               </files>
