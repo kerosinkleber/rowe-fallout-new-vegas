@@ -108,7 +108,7 @@ $moduleXml = @'
         <group name="Mod Organizer 2: the ROWE launcher" type="SelectAll">
           <plugins order="Explicit">
             <plugin name="How to start the game with the ROWE launcher">
-              <description>In Mod Organizer 2, add the launcher once: choose "<Edit...>" in the list next to the Run button (the executables), click "+" and "Add from file", pick this mod's NVSE\Plugins\rowe_launcher.exe (in MO2's mods folder, for example mods\ROWE for Fallout New Vegas\NVSE\Plugins\rowe_launcher.exe), name it "ROWE Launcher" and click OK. Then choose "ROWE Launcher" in that list and click Run; MO2 keeps it selected. For a desktop shortcut, click the Shortcut button next to Run and choose Desktop (it starts the launcher through MO2). (Nothing is installed by this entry; the steps are also in rowe_readme.txt.)</description>
+              <description>In Mod Organizer 2, add the launcher once: choose "&lt;Edit...&gt;" in the list next to the Run button (the executables), click "+" and "Add from file", pick this mod's NVSE\Plugins\rowe_launcher.exe (in MO2's mods folder, for example mods\ROWE for Fallout New Vegas\NVSE\Plugins\rowe_launcher.exe), name it "ROWE Launcher" and click OK. Then choose "ROWE Launcher" in that list and click Run; MO2 keeps it selected. For a desktop shortcut, click the Shortcut button next to Run and choose Desktop (it starts the launcher through MO2). (Nothing is installed by this entry; the steps are also in rowe_readme.txt.)</description>
               <conditionFlags>
                 <flag name="roweLauncherNote">On</flag>
               </conditionFlags>
