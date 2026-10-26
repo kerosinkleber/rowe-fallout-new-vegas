@@ -26,6 +26,7 @@ fxc /nologo /T ps_3_0 /E PSCursor /Vn g_cursorPS /Fh "%OUT%\cursor_ps.h" "%SRC%\
 fxc /nologo /T vs_3_0 /E VSMain /Vn g_downscaleVS /Fh "%OUT%\downscale_vs.h" "%SRC%\downscale.hlsl" >nul || exit /b 1
 fxc /nologo /T ps_3_0 /E PSMain /Vn g_downscalePS /Fh "%OUT%\downscale_ps.h" "%SRC%\downscale.hlsl" >nul || exit /b 1
 fxc /nologo /T ps_3_0 /E PSFast /Vn g_downscaleFastPS /Fh "%OUT%\downscale_fast_ps.h" "%SRC%\downscale.hlsl" >nul || exit /b 1
+fxc /nologo /T ps_3_0 /E PSPixel /Vn g_pixelPS /Fh "%OUT%\pixel_ps.h" "%SRC%\downscale.hlsl" >nul || exit /b 1
 
 rem /MT links the C runtime statically, so the DLL needs no Visual C++ redistributable.
 rem /d1trimfile: source paths compiled in (Dear ImGui's asserts) are relative to this folder, so no

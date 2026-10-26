@@ -317,6 +317,8 @@ static void __cdecl Stamp(int id)
     if (id == kSiteCount - 1 && D3DDevice()) {
         D3DScope scope;
         LensPreUI(D3DDevice());
+        SupersamplePreUI(D3DDevice());  // pixelated look, sharp interface: from here on the window's resolution
+        LensPreUIRetarget(D3DDevice());
         ScreenshotPreUI(D3DDevice());
     }
 }

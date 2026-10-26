@@ -1,0 +1,50 @@
+# Pixelated look in exclusive fullscreen (start with rowe.ini pixelsize=N, pixelhud=0/1 and
+# [dev] fullscreen=1, size=<the display's resolution>). The runner brings the game to the front
+# (tools/focus_game.ps1) when the log shows "focus now 1", and alt-tabs it (the same script:
+# minimise, restore) at "alt-tab now"; the game's fullscreen device is a D3D9Ex one, which that
+# does not lose. Then a simulated device loss (the game's Reset). Shots in gameplay before and
+# after each, the pause menu once. Nothing is saved.
+log pixelated fs: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+waitgameplay 3600
+wait 60
+log pixelated fs: focus now 1
+wait 120
+waitfocus 1200
+ifmenu 1013 key esc
+waitnomenu 1013 300
+wait 60
+ifmenu 1013 key esc
+waitnomenu 1013 300
+waitgameplay 600
+wait 150
+log pixelated fs: before
+shot
+log pixelated fs: alt-tab now
+wait 300
+waitfocus 1200
+wait 60
+ifmenu 1013 key esc
+waitnomenu 1013 300
+wait 60
+ifmenu 1013 key esc
+waitnomenu 1013 300
+waitgameplay 600
+wait 150
+log pixelated fs: after alt-tab
+shot
+key esc
+wait 60
+shot
+key esc
+waitnomenu 1013 300
+waitgameplay 600
+wait 60
+log pixelated fs: device lost
+devicelost
+wait 150
+shot
+log pixelated fs: done
+con qqq

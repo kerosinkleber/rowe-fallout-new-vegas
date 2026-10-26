@@ -8,9 +8,10 @@ void FramePresent(IDirect3DDevice9* dev)
 {
     IDirect3DSurface9* bb = nullptr;
     if (FAILED(D3DRealBackBuffer(&bb)) || !bb) return;
-    // The frame the engine rendered (the virtual back buffer with supersampling).
+    // The frame the engine rendered (the virtual back buffer with supersampling; the real one when the
+    // pixelated look's interface was drawn there).
     IDirect3DSurface9* engineFrame = nullptr;
-    if (!SupersampleBackBuffer(&engineFrame)) {
+    if (SupersampleSplitThisFrame() || !SupersampleBackBuffer(&engineFrame)) {
         engineFrame = bb;
         bb->AddRef();
     }
@@ -36,9 +37,9 @@ void FrameDeviceLost()
 
 void ModWriteState(FILE* f)
 {
-    fprintf(f, "mod: fov %g lens %d pipboyfov %g supersample %g mousetrap %d skipintros %d scopelens %d | overlay %s\n",
-            g_settings.fov, g_settings.lens, g_settings.pipboyFov, g_settings.supersample, g_settings.mousetrap, g_settings.skipIntros,
-            g_settings.scopeLens, OverlayOpen() ? "open" : "closed");
+    fprintf(f, "mod: fov %g lens %d pipboyfov %g supersample %g pixelsize %d pixelhud %d mousetrap %d skipintros %d scopelens %d | overlay %s\n",
+            g_settings.fov, g_settings.lens, g_settings.pipboyFov, g_settings.supersample, g_settings.pixelSize, g_settings.pixelHud,
+            g_settings.mousetrap, g_settings.skipIntros, g_settings.scopeLens, OverlayOpen() ? "open" : "closed");
     FovWriteState(f);
     LensWriteState(f);
     SupersampleWriteState(f);

@@ -19,8 +19,9 @@
 //                    photo                 photo mode on / off, as the photo shortcut
 //                    tiles <menu id>       the menu's tile tree with its values to rowe_tiles.txt
 //                    wheel <delta>         photo mode's wheel zoom, as the mouse wheel (120 per notch, + closer)
-//                    overlay <action>      settings menu: open, close, up, down, left, right, home
-//                    set <key> <value>     change a setting (fov, zoomfov, lens, pipboyfov, supersample, mousetrap, skipintros, scopelens)
+//                    overlay <action>      settings menu: open, close, tab <name> (View, Image, ...)
+//                    set <key> <value>     change a setting (fov, zoomfov, lens, pipboyfov, supersample, pixelsize, pixelhud,
+//                                          mousetrap, skipintros, scopelens)
 //                    reload                re-read rowe.ini
 //                    devicelost            the next Present reports a lost device, so the game resets it
 //                    restart               as the menu's restart button: save, start again, load the save
@@ -140,6 +141,8 @@ static void SetCommand(char* arg)
     else if (!lstrcmpiA(arg, "pipboyfov")) g_settings.pipboyFov = v;
     else if (!lstrcmpiA(arg, "zoomfov")) g_settings.zoomFov = v;
     else if (!lstrcmpiA(arg, "supersample")) g_settings.supersample = v;
+    else if (!lstrcmpiA(arg, "pixelsize")) g_settings.pixelSize = (int)v;
+    else if (!lstrcmpiA(arg, "pixelhud")) g_settings.pixelHud = v != 0;
     else if (!lstrcmpiA(arg, "mousetrap")) g_settings.mousetrap = (int)v;
     else if (!lstrcmpiA(arg, "skipintros")) g_settings.skipIntros = v != 0;
     else if (!lstrcmpiA(arg, "scopelens")) g_settings.scopeLens = v != 0;

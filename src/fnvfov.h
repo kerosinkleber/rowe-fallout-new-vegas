@@ -41,12 +41,15 @@ enum { kMouseTrapOff = 0, kMouseTrapGameplay = 1, kMouseTrapAlways = 2, kMouseTr
 static const float kFovMin = 60.f, kFovMax = 160.f;
 static const float kPipboyFovMin = 20.f, kPipboyFovMax = 90.f;
 static const float kZoomFovMin = 10.f;
+static const int kPixelSizeMax = 8;
 struct Settings {
     float fov = 0;           // 0 = game default
     int lens = kLensAuto;
     float pipboyFov = 0;     // 0 = game default (fPipboy1stPersonFOV)
     float zoomFov = 0;       // zoom without a weapon drawn; 0 = game default (fIronSightsZoomDefault)
     float supersample = 1;   // pixel-count multiplier; applies at the next start
+    int pixelSize = 1;       // pixelated look: window pixels per game pixel (1 = off, 2-8); overrides supersample; next start
+    bool pixelHud = true;    // pixelated look: the whole image at the low resolution (false: HUD and menus at the window's)
     int mousetrap = kMouseTrapOff;
     bool skipIntros = true;  // applies at the next start
     bool scopeLens = true;   // the lens also bends the scope overlay
@@ -72,6 +75,7 @@ struct Settings {
     bool showcase = false;               // the screenshot key takes the showcase series (screenshot.cpp)
     int devFullscreen = -1;  // [dev] fullscreen: -1 = the game's own bFull Screen
     int devWidth = 0, devHeight = 0;  // [dev] size: window size for this start, 0 = the game's own
+    int devMsaa = -1;  // [dev] msaa: the game's iMultiSample for this start (0, 2, 4, 8), -1 = the game's own
     bool devVatsShrink = true;  // [dev] vatsshrink=0: VATS image space at the game's size (comparison)
 };
 extern Settings g_settings;
@@ -132,6 +136,7 @@ bool LensMapToRender(float* x, float* y);  // shown at render pixel (x, y) -> wh
 bool LensCursorScale(float* kx, float* ky);  // Pip-Boy warped after the UI: render px per shown px at the cursor
 bool LensCursorShown(float* x, float* y);   // Pip-Boy warped after the UI: where the cursor was shown (render px)
 void LensLost();
+void LensPreUIRetarget(IDirect3DDevice9* dev);  // the Pip-Boy's pre-UI copy again, from the render target now bound
 float LensEffectiveFov();                  // lens FOV in use (engine units), 0 when not warping
 // For the stats window: the latest warp's lens FOV and the FOV it was rendered at (true horizontal
 // degrees), Auto's Panini share (0..1); false when no recent frame was warped (*skip says why).
@@ -168,6 +173,16 @@ void SupersampleDeviceReady(IDirect3DDevice9* dev);                       // cre
 bool SupersampleBackBuffer(IDirect3DSurface9** out);                      // GetBackBuffer replacement
 IDirect3DSurface9* SupersampleReplaceTarget(IDirect3DSurface9* s);        // SetRenderTarget: real -> virtual
 void SupersampleResolve(IDirect3DDevice9* dev, IDirect3DSurface9* realBB);
+// Pixelated look (pixelsize=): the virtual size is the window's / N, shown with hard pixels.
+int SupersamplePixelSize();                                               // N, 0 when off
+void SupersamplePreUI(IDirect3DDevice9* dev);   // sharp interface: frame to the real back buffer, interface drawn there
+bool SupersampleSplitThisFrame();               // this frame's interface is in the real back buffer
+IDirect3DSurface9* SupersampleReplaceDepth(IDirect3DSurface9* s);         // SetDepthStencilSurface during the interface
+bool SupersampleUiViewport(const D3DVIEWPORT9* vp, D3DVIEWPORT9* out);    // SetViewport: scaled while drawing the interface
+void SupersampleUiGetViewport(D3DVIEWPORT9* vp);                          // GetViewport: the engine's own back
+const RECT* SupersampleUiScissor(const RECT* r, RECT* buf);               // SetScissorRect: scaled while drawing the interface
+void SupersampleUiGetScissor(RECT* r);
+const D3DRECT* SupersampleUiClearRects(DWORD count, const D3DRECT* rects, D3DRECT* buf, DWORD bufCount);
 void SupersampleLost();
 void SupersampleWriteState(FILE* f);
 
@@ -200,7 +215,7 @@ void IntrosWriteState(FILE* f);
 
 // overlay.cpp: the F8 settings menu.
 void OverlayPresent(IDirect3DDevice9* dev, IDirect3DSurface9* target);
-void OverlayCommand(const char* arg);  // tools: "open", "close", "up", "down", "left", "right", "home"
+void OverlayCommand(const char* arg);  // tools: "open", "close", "tab <name>"
 bool OverlayOpen();
 // gameui.cpp: the game's UI font and HUD colour for the settings menu.
 bool GameFontCapture(int fontIndex);  // copies the game's loaded font fontIndex (0-based); false if not readable

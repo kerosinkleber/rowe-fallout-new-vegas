@@ -10,6 +10,10 @@
 //   pipboyfov=0      0 = game default (fPipboy1stPersonFOV, 47), otherwise 20-90: the Pip-Boy's FOV
 //                    (lower = the Pip-Boy appears bigger)
 //   supersample=1    pixel-count multiplier 1-64 (4 = twice the width and height, 64 = 8 times); next start
+//   pixelsize=1      pixelated look: 2-8 window pixels per game pixel (the game renders at the window's
+//                    size / pixelsize, shown with hard square pixels); 1 = off. Overrides supersample; next start
+//   pixelhud=1       pixelated look: 1 the whole image at the low resolution (HUD and menus too), 0 the HUD
+//                    and menus stay sharp (window resolution) over the pixelated world; applies at once
 //   mousetrap=0      0 off, 1 gameplay only, 2 menus too
 //   skipintros=1     1 skip the intro videos (next start)
 //   fisheyecircle=0  fisheye: 1 shows all of the render as a circle fitted to the screen's shorter side
@@ -43,6 +47,8 @@
 // Section [dev] (testing only, FalloutPrefs.ini is not changed):
 //   fullscreen=0/1   overrides the game's bFull Screen at start; -1 or absent leaves it alone
 //   size=WxH         window size for the next start only (the key is removed once read)
+//   msaa=0           the game's antialiasing (iMultiSample: 0, 2, 4, 8) for comparisons; -1 or absent
+//                    leaves it alone (FalloutPrefs.ini keeps its value)
 //   vatsshrink=0     VATS's image-space textures at the game's (supersampled) size, for comparison
 #include <windows.h>
 #include <stdio.h>
@@ -89,6 +95,10 @@ void SettingsLoad()
     s.supersample = ReadFloat("supersample", 1);
     if (s.supersample < 1) s.supersample = 1;
     if (s.supersample > 64) s.supersample = 64;
+    s.pixelSize = (int)ReadFloat("pixelsize", 1);
+    if (s.pixelSize < 1) s.pixelSize = 1;
+    if (s.pixelSize > kPixelSizeMax) s.pixelSize = kPixelSizeMax;
+    s.pixelHud = ReadFloat("pixelhud", 1) != 0;
     s.mousetrap = (int)ReadFloat("mousetrap", 0);
     if (s.mousetrap < 0 || s.mousetrap >= kMouseTrapModeCount) s.mousetrap = 0;
     s.skipIntros = ReadFloat("skipintros", 1) != 0;
@@ -148,6 +158,7 @@ void SettingsLoad()
     char path[MAX_PATH];
     Path(path);
     s.devFullscreen = GetPrivateProfileIntA("dev", "fullscreen", -1, path);
+    s.devMsaa = GetPrivateProfileIntA("dev", "msaa", -1, path);
     s.devVatsShrink = GetPrivateProfileIntA("dev", "vatsshrink", 1, path) != 0;
     char size[32] = "";
     GetPrivateProfileStringA("dev", "size", "", size, sizeof(size), path);
@@ -159,8 +170,8 @@ void SettingsLoad()
     }
     g_settings = s;
     Log("settings: zoomfov %g", s.zoomFov);
-    Log("settings: fov %g lens %d pipboyfov %g supersample %g mousetrap %d skipintros %d scopelens %d", s.fov, s.lens, s.pipboyFov,
-        s.supersample, s.mousetrap, s.skipIntros, s.scopeLens);
+    Log("settings: fov %g lens %d pipboyfov %g supersample %g pixelsize %d pixelhud %d mousetrap %d skipintros %d scopelens %d", s.fov,
+        s.lens, s.pipboyFov, s.supersample, s.pixelSize, s.pixelHud, s.mousetrap, s.skipIntros, s.scopeLens);
 }
 
 void SettingsSave()
@@ -182,6 +193,9 @@ void SettingsSave()
     WritePrivateProfileStringA("rowe", "pipboyfov", v, path);
     sprintf(v, "%g", g_settings.supersample);
     WritePrivateProfileStringA("rowe", "supersample", v, path);
+    sprintf(v, "%d", g_settings.pixelSize);
+    WritePrivateProfileStringA("rowe", "pixelsize", v, path);
+    WritePrivateProfileStringA("rowe", "pixelhud", g_settings.pixelHud ? "1" : "0", path);
     sprintf(v, "%d", g_settings.mousetrap);
     WritePrivateProfileStringA("rowe", "mousetrap", v, path);
     WritePrivateProfileStringA("rowe", "skipintros", g_settings.skipIntros ? "1" : "0", path);

@@ -16,6 +16,14 @@
 //   buffer is only bound by the mod itself (resolve, screenshot, settings menu).
 // The factor is read at start (rowe.ini supersample=, pixel-count multiplier) and applies to
 // the next start when changed in the menu.
+//
+// The pixelated look (pixelsize=N, 2-8) is the same path the other way round: the virtual size is
+// the window's divided by N (rounded up, so whole pixels cover the window), and Present shows each
+// rendered pixel as N x N window pixels (nearest neighbour, PSPixel): the whole image,
+// interface included (pixelhud=1, the default). With pixelhud=0 the interface
+// stays sharp: at the pre-UI point the frame is shown in the real back buffer and the engine draws
+// its interface there, at the window's resolution (see SupersamplePreUI). pixelhud applies at once.
+// It also works with the lens (which warps the small frame before it is shown) and photo mode.
 #include <windows.h>
 #include <math.h>
 #include <string.h>
@@ -23,6 +31,7 @@
 #include "downscale_vs.h"
 #include "downscale_ps.h"
 #include "downscale_fast_ps.h"
+#include "pixel_ps.h"
 
 static bool s_active;
 static float s_scale = 1;              // per axis
@@ -36,9 +45,18 @@ static IDirect3DPixelShader9* s_ps;
 static D3DFORMAT s_format = D3DFMT_X8R8G8B8;
 static DWORD s_resolves;
 static bool s_overridden;  // the game's size was changed after the mod read iSize: off for this start
+static int s_pixel;        // pixelated look: window pixels per rendered pixel (0 = supersampling)
 
 void SupersampleInit()
 {
+    if (g_settings.pixelSize >= 2) {
+        s_pixel = g_settings.pixelSize;
+        s_active = true;
+        s_scale = 1.f / s_pixel;
+        Log("supersample: pixelated look, %d window pixels per game pixel, interface %s%s", s_pixel, g_settings.pixelHud ? "pixelated" : "sharp",
+            g_settings.supersample > 1.01f ? " (supersample= is ignored)" : "");
+        return;
+    }
     float f = g_settings.supersample;
     s_active = f > 1.01f;
     s_scale = s_active ? sqrtf(f) : 1.f;
@@ -47,6 +65,15 @@ void SupersampleInit()
 }
 
 bool SupersampleActive() { return s_active && s_virtW > 0; }
+int SupersamplePixelSize() { return SupersampleActive() ? s_pixel : 0; }
+
+// The virtual side for a native one: scaled and even (supersampling), or with the pixelated look
+// the smallest even size whose pixels, N window pixels each, cover the native side.
+static int VirtualSide(int native, float scale)
+{
+    if (s_pixel) return ((native + s_pixel - 1) / s_pixel + 1) & ~1;
+    return ((int)(native * scale + 0.5f)) & ~1;
+}
 bool SupersampleOverridden() { return s_overridden; }
 
 // The sizes as soon as the INI has been read (before the device exists).
@@ -97,7 +124,7 @@ UINT SupersampleIniInt(LPCSTR app, LPCSTR key, UINT value, UINT (*readOther)(boo
             Log("supersample: scale %.3f limited to %.3f (16384 pixels per side)", s_scale, scale);
         }
     }
-    int v = ((int)(value * scale + 0.5f)) & ~1;
+    int v = VirtualSide((int)value, scale);
     if (width) { s_prefsW = s_nativeW = value; s_virtW = v; }
     else { s_prefsH = s_nativeH = value; s_virtH = v; }
     Log("supersample: iSize %s %u -> %d", width ? "W" : "H", value, v);
@@ -164,8 +191,8 @@ void SupersampleSyncSettings()
     if (longest * scale > 16384) scale = 16384.f / longest;
     s_nativeW = w;
     s_nativeH = h;
-    s_virtW = ((int)(w * scale + 0.5f)) & ~1;
-    s_virtH = ((int)(h * scale + 0.5f)) & ~1;
+    s_virtW = VirtualSide(w, scale);
+    s_virtH = VirtualSide(h, scale);
     *(int*)(ow + 4) = s_virtW;
     *(int*)(oh + 4) = s_virtH;
     Log("supersample: iSize was changed to %dx%d after the INI reads (e.g. FalloutCustom.ini): native %dx%d, virtual %dx%d "
@@ -213,8 +240,152 @@ void SupersampleRestorePresentParams(D3DPRESENT_PARAMETERS* pp)
     pp->BackBufferHeight = s_virtH;
 }
 
+// ---- pixelated look: the interface at the window's resolution ---------------------------------
+// From the pre-UI point to Present (s_split) the engine's interface goes to the real back buffer:
+// render target 0 bindings of the virtual (or real) back buffer become the real one, viewports,
+// scissor rectangles and cleared rectangles are scaled from the virtual size to the window's, and a
+// depth surface smaller than the window is swapped for one of the window's size (s_uiDepth). The interface's
+// layout and the mouse stay in the virtual size's pixels, stretched over the window; the frame
+// itself is shown with whole N x N pixels (cropped by up to a few pixels at the edges), so the two
+// differ by less than one game pixel at the edges and agree at the centre.
+static bool s_split;                       // this frame's interface goes to the real back buffer
+static bool s_rt0Ui;                       // render target 0 is the real back buffer for the interface
+static IDirect3DSurface9* s_uiDepth;       // depth surface at the window's size
+static IDirect3DSurface9* s_engineDepth;   // the engine's depth surface s_uiDepth stands in for (one reference)
+static D3DVIEWPORT9 s_vpRaw, s_vpScaled;   // the engine's last viewport during the split, and what was set
+static RECT s_scissorRaw;                  // the engine's last scissor rectangle (virtual pixels)
+static bool s_scissorSet;                  // the engine has set one
+static RECT s_scissorScaled;
+static DWORD s_splits, s_splitSkips;
+static const char* s_splitSkip = "";
+
+static void ScaleXY(LONG x, LONG y, LONG* ox, LONG* oy)
+{
+    *ox = (LONG)floorf(x * (float)s_nativeW / s_virtW + 0.5f);
+    *oy = (LONG)floorf(y * (float)s_nativeH / s_virtH + 0.5f);
+    if (*ox < 0) *ox = 0;
+    if (*oy < 0) *oy = 0;
+    if (*ox > s_nativeW) *ox = s_nativeW;
+    if (*oy > s_nativeH) *oy = s_nativeH;
+}
+
+static RECT ScaleRect(const RECT& r)
+{
+    RECT o;
+    ScaleXY(r.left, r.top, &o.left, &o.top);
+    ScaleXY(r.right, r.bottom, &o.right, &o.bottom);
+    return o;
+}
+
+static D3DVIEWPORT9 ScaleViewport(const D3DVIEWPORT9& v)
+{
+    LONG x0, y0, x1, y1;
+    ScaleXY((LONG)v.X, (LONG)v.Y, &x0, &y0);
+    ScaleXY((LONG)(v.X + v.Width), (LONG)(v.Y + v.Height), &x1, &y1);
+    D3DVIEWPORT9 o = v;
+    o.X = x0;
+    o.Y = y0;
+    o.Width = x1 > x0 ? x1 - x0 : 1;
+    o.Height = y1 > y0 ? y1 - y0 : 1;
+    return o;
+}
+
+// A depth surface too small for the window (D3D9 needs depth at least as large as the target): the
+// engine draws its interface with a 1024 x 1024 one (at least the virtual size).
+static bool IsSmallDepth(IDirect3DSurface9* s)
+{
+    D3DSURFACE_DESC d;
+    return s && s != s_uiDepth && SUCCEEDED(s->GetDesc(&d)) && ((int)d.Width < s_nativeW || (int)d.Height < s_nativeH) &&
+           d.MultiSampleType == D3DMULTISAMPLE_NONE;
+}
+
+// Puts the engine's own bindings back (Present, device loss): render target 0 and depth as it set them.
+static void EndSplit(IDirect3DDevice9* dev)
+{
+    if (!s_split) return;
+    s_split = false;
+    s_rt0Ui = false;
+    if (!dev) return;
+    IDirect3DSurface9 *real = nullptr, *rt = nullptr, *ds = nullptr;
+    D3DRealBackBuffer(&real);
+    dev->GetRenderTarget(0, &rt);
+    if (rt && rt == real && s_fakeSurface) dev->SetRenderTarget(0, s_fakeSurface);
+    dev->GetDepthStencilSurface(&ds);
+    if (ds == s_uiDepth) dev->SetDepthStencilSurface(s_engineDepth);
+    if (s_engineDepth) { s_engineDepth->Release(); s_engineDepth = nullptr; }
+    if (s_scissorSet) dev->SetScissorRect(&s_scissorRaw);
+    if (real) real->Release();
+    if (rt) rt->Release();
+    if (ds) ds->Release();
+}
+
+bool SupersampleSplitThisFrame() { return s_split; }
+
+IDirect3DSurface9* SupersampleReplaceDepth(IDirect3DSurface9* s)
+{
+    if (!s_split || !s_uiDepth || !IsSmallDepth(s)) return s;
+    if (s != s_engineDepth) {
+        s->AddRef();
+        if (s_engineDepth) s_engineDepth->Release();
+        s_engineDepth = s;
+    }
+    return s_uiDepth;
+}
+
+bool SupersampleUiViewport(const D3DVIEWPORT9* vp, D3DVIEWPORT9* out)
+{
+    if (!s_rt0Ui || !vp) return false;
+    s_vpRaw = *vp;
+    s_vpScaled = *out = ScaleViewport(*vp);
+    return true;
+}
+
+// GetViewport: the engine gets back what it set, not the scaled viewport.
+void SupersampleUiGetViewport(D3DVIEWPORT9* vp)
+{
+    if (s_split && vp && !memcmp(vp, &s_vpScaled, sizeof(*vp))) *vp = s_vpRaw;
+}
+
+const RECT* SupersampleUiScissor(const RECT* r, RECT* buf)
+{
+    if (!SupersampleActive() || !r) return r;
+    s_scissorRaw = *r;
+    s_scissorSet = true;
+    if (!s_rt0Ui) return r;
+    s_scissorScaled = *buf = ScaleRect(*r);
+    return buf;
+}
+
+void SupersampleUiGetScissor(RECT* r)
+{
+    if (s_split && r && !memcmp(r, &s_scissorScaled, sizeof(*r))) *r = s_scissorRaw;
+}
+
+const D3DRECT* SupersampleUiClearRects(DWORD count, const D3DRECT* rects, D3DRECT* buf, DWORD bufCount)
+{
+    if (!s_rt0Ui || !rects || !count || count > bufCount) return rects;
+    for (DWORD i = 0; i < count; ++i) {
+        RECT r = {rects[i].x1, rects[i].y1, rects[i].x2, rects[i].y2};
+        r = ScaleRect(r);
+        buf[i] = {r.left, r.top, r.right, r.bottom};
+    }
+    return buf;
+}
+
 void SupersampleLost()
 {
+    IDirect3DDevice9* dev = D3DDevice();
+    if (s_split) {
+        // Device loss between the pre-UI point and Present: the depth surface goes back unbound.
+        s_split = s_rt0Ui = false;
+        IDirect3DSurface9* ds = nullptr;
+        if (dev && SUCCEEDED(dev->GetDepthStencilSurface(&ds)) && ds) {
+            if (ds == s_uiDepth) dev->SetDepthStencilSurface(nullptr);
+            ds->Release();
+        }
+    }
+    if (s_engineDepth) { s_engineDepth->Release(); s_engineDepth = nullptr; }
+    if (s_uiDepth) { s_uiDepth->Release(); s_uiDepth = nullptr; }
     // A texture's surface shares the texture's reference count: after the surface is released,
     // anything above the texture's own reference is held by someone else.
     if (s_fakeSurface) { s_fakeSurface->Release(); s_fakeSurface = nullptr; }
@@ -258,31 +429,41 @@ bool SupersampleBackBuffer(IDirect3DSurface9** out)
     return true;
 }
 
+// SetRenderTarget(0): the real back buffer becomes the virtual one, except for the interface of
+// the pixelated look (both go to the real one).
 IDirect3DSurface9* SupersampleReplaceTarget(IDirect3DSurface9* s)
 {
-    if (!SupersampleActive() || !s_fakeSurface || !s) return s;
+    if (!SupersampleActive() || !s_fakeSurface || !s) {
+        s_rt0Ui = false;
+        return s;
+    }
     IDirect3DSurface9* real = nullptr;
     if (FAILED(D3DRealBackBuffer(&real)) || !real) return s;
     real->Release();
+    if (s_split) {
+        s_rt0Ui = s == real || s == s_fakeSurface;
+        return s_rt0Ui ? real : s;
+    }
     return s == real ? s_fakeSurface : s;
 }
 
-// Present: averages the virtual frame down into the real back buffer.
-void SupersampleResolve(IDirect3DDevice9* dev, IDirect3DSurface9* realBB)
+// Draws the virtual frame into target (the real back buffer): averaged down (supersampling) or
+// with hard pixels (pixelated look). ownScene: called outside the engine's BeginScene (Present).
+static void Show(IDirect3DDevice9* dev, IDirect3DSurface9* target, bool ownScene)
 {
-    if (!SupersampleActive() || !s_fake) return;
     if (!s_vs && FAILED(dev->CreateVertexShader((const DWORD*)g_downscaleVS, &s_vs))) return;
     if (!s_ps && FAILED(dev->CreatePixelShader((const DWORD*)g_downscalePS, &s_ps))) return;
-    static IDirect3DPixelShader9* s_fastPS;
+    static IDirect3DPixelShader9 *s_fastPS, *s_pixelPS;
     if (!s_fastPS && FAILED(dev->CreatePixelShader((const DWORD*)g_downscaleFastPS, &s_fastPS))) s_fastPS = nullptr;
+    if (s_pixel && !s_pixelPS && FAILED(dev->CreatePixelShader((const DWORD*)g_pixelPS, &s_pixelPS))) return;
     D3DSURFACE_DESC d;
-    realBB->GetDesc(&d);
+    target->GetDesc(&d);
     IDirect3DStateBlock9* sb = nullptr;
     if (FAILED(dev->CreateStateBlock(D3DSBT_ALL, &sb))) return;
     IDirect3DSurface9 *oldRT = nullptr, *oldDS = nullptr;
     dev->GetRenderTarget(0, &oldRT);
     dev->GetDepthStencilSurface(&oldDS);
-    dev->SetRenderTarget(0, realBB);
+    dev->SetRenderTarget(0, target);
     dev->SetDepthStencilSurface(nullptr);
     D3DVIEWPORT9 vp = {0, 0, d.Width, d.Height, 0.f, 1.f};
     dev->SetViewport(&vp);
@@ -290,12 +471,16 @@ void SupersampleResolve(IDirect3DDevice9* dev, IDirect3DSurface9* realBB)
     // The same integer scale on both axes (factors 4, 9, ..., 64): the fast shader with sRGB-decoding
     // bilinear reads; otherwise the general one (exact fractional spans, point reads).
     float sx = (float)s_virtW / d.Width, sy = (float)s_virtH / d.Height;
-    bool fast = s_fastPS && s_virtW % d.Width == 0 && s_virtH % d.Height == 0 && fabsf(sx - sy) < 1e-3f && sx >= 2;
-    dev->SetPixelShader(fast ? s_fastPS : s_ps);
+    bool fast = !s_pixel && s_fastPS && s_virtW % d.Width == 0 && s_virtH % d.Height == 0 && fabsf(sx - sy) < 1e-3f && sx >= 2;
+    dev->SetPixelShader(s_pixel ? s_pixelPS : fast ? s_fastPS : s_ps);
     dev->SetFVF(D3DFVF_XYZ | D3DFVF_TEX1);
-    float c0[4] = {(float)s_virtW / d.Width, (float)s_virtH / d.Height, (float)s_virtW, (float)s_virtH};
+    float c0[4] = {sx, sy, (float)s_virtW, (float)s_virtH};
+    // Pixelated: N window pixels per frame pixel, the frame centred (its overhang cut off evenly).
+    float c1[4] = {-(float)((s_virtW * s_pixel - (int)d.Width) / 2), -(float)((s_virtH * s_pixel - (int)d.Height) / 2), 0, 0};
+    if (s_pixel) c0[0] = c0[1] = (float)s_pixel;
     float c2[4] = {-1.f / d.Width, 1.f / d.Height, 0, 0};
     dev->SetPixelShaderConstantF(0, c0, 1);
+    if (s_pixel) dev->SetPixelShaderConstantF(1, c1, 1);
     dev->SetVertexShaderConstantF(2, c2, 1);
     dev->SetTexture(0, s_fake);
     dev->SetSamplerState(0, D3DSAMP_MINFILTER, fast ? D3DTEXF_LINEAR : D3DTEXF_POINT);
@@ -317,9 +502,9 @@ void SupersampleResolve(IDirect3DDevice9* dev, IDirect3DSurface9* realBB)
     dev->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
     struct V { float x, y, z, u, v; };
     const V quad[4] = {{-1, 1, 0, 0, 0}, {1, 1, 0, 1, 0}, {-1, -1, 0, 0, 1}, {1, -1, 0, 1, 1}};
-    if (SUCCEEDED(dev->BeginScene())) {
+    if (!ownScene || SUCCEEDED(dev->BeginScene())) {
         dev->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(V));
-        dev->EndScene();
+        if (ownScene) dev->EndScene();
     }
     dev->SetTexture(0, nullptr);
     dev->SetRenderTarget(0, oldRT);
@@ -328,6 +513,67 @@ void SupersampleResolve(IDirect3DDevice9* dev, IDirect3DSurface9* realBB)
     sb->Release();
     if (oldRT) oldRT->Release();
     if (oldDS) oldDS->Release();
+}
+
+// Pixelated look with a sharp interface, at the pre-UI point (the world, image space and the lens
+// are in the virtual frame): the frame is shown in the real back buffer and the engine's interface
+// is drawn over it there (see s_split).
+void SupersamplePreUI(IDirect3DDevice9* dev)
+{
+    if (!s_pixel || g_settings.pixelHud || !SupersampleActive() || !s_fakeSurface || s_split) return;
+    IDirect3DSurface9 *rt = nullptr, *real = nullptr, *ds = nullptr;
+    dev->GetRenderTarget(0, &rt);
+    if (rt) rt->Release();
+    if (rt != s_fakeSurface) { s_splitSkip = "render target is not the back buffer"; ++s_splitSkips; return; }
+    if (FAILED(D3DRealBackBuffer(&real)) || !real) return;
+    D3DSURFACE_DESC d;
+    real->GetDesc(&d);
+    if (!s_uiDepth) {
+        HRESULT hr = dev->CreateDepthStencilSurface(d.Width, d.Height, D3DFMT_D24S8, d.MultiSampleType, d.MultiSampleQuality, FALSE,
+                                                    &s_uiDepth, nullptr);
+        Log("supersample: interface depth surface %ux%u -> %08lx", d.Width, d.Height, hr);
+        if (FAILED(hr)) {
+            s_uiDepth = nullptr;
+            s_splitSkip = "no depth surface";
+            ++s_splitSkips;
+            real->Release();
+            return;
+        }
+    }
+    Show(dev, real, false);  // inside the engine's scene
+    D3DVIEWPORT9 vp;
+    dev->GetViewport(&vp);
+    dev->GetDepthStencilSurface(&ds);
+    s_split = s_rt0Ui = true;
+    dev->SetRenderTarget(0, real);
+    if (IsSmallDepth(ds)) {
+        s_engineDepth = ds;  // keeps the reference
+        ds = nullptr;
+        dev->SetDepthStencilSurface(s_uiDepth);
+        dev->Clear(0, nullptr, D3DCLEAR_ZBUFFER | D3DCLEAR_STENCIL, 0, 1.f, 0);
+    }
+    if (ds) ds->Release();
+    D3DVIEWPORT9 scaled;
+    SupersampleUiViewport(&vp, &scaled);
+    dev->SetViewport(&scaled);
+    if (s_scissorSet) {
+        s_scissorScaled = ScaleRect(s_scissorRaw);
+        dev->SetScissorRect(&s_scissorScaled);
+    }
+    real->Release();
+    if (++s_splits == 1) Log("supersample: first frame with the interface at the window's resolution");
+}
+
+// Present: averages the virtual frame down into the real back buffer, or shows it with hard
+// pixels; after an interface drawn at the window's resolution the frame is already there.
+void SupersampleResolve(IDirect3DDevice9* dev, IDirect3DSurface9* realBB)
+{
+    if (s_split) {
+        EndSplit(dev);
+        return;
+    }
+    if (!SupersampleActive() || !s_fake) return;
+    Show(dev, realBB, true);
     ++s_resolves;
 }
 
@@ -335,4 +581,8 @@ void SupersampleWriteState(FILE* f)
 {
     fprintf(f, "supersample: setting %g, active %d, native %dx%d, virtual %dx%d, virtual back buffer %p, resolves %lu\n",
             g_settings.supersample, SupersampleActive(), s_nativeW, s_nativeH, s_virtW, s_virtH, s_fakeSurface, s_resolves);
+    fprintf(f, "pixelated: setting %d hud %s, active %d (%d window pixels per game pixel), interface at window resolution %lu frames, "
+            "skipped %lu (%s), split now %d, depth %p\n",
+            g_settings.pixelSize, g_settings.pixelHud ? "pixelated" : "sharp", SupersamplePixelSize() > 0, s_pixel, s_splits, s_splitSkips,
+            s_splitSkip, s_split, s_uiDepth);
 }

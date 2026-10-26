@@ -52,7 +52,9 @@ ORIG(IDirect3DDevice9, GetDepthStencilSurface);
 ORIG(IDirect3DDevice9, Clear);
 ORIG(IDirect3DDevice9, StretchRect);
 ORIG(IDirect3DDevice9, SetViewport);
+ORIG(IDirect3DDevice9, GetViewport);
 ORIG(IDirect3DDevice9, SetScissorRect);
+ORIG(IDirect3DDevice9, GetScissorRect);
 ORIG(IDirect3DDevice9, BeginScene);
 ORIG(IDirect3DDevice9, EndScene);
 ORIG(IDirect3DDevice9, DrawPrimitive);
@@ -923,6 +925,7 @@ static HRESULT STDMETHODCALLTYPE H_SetRenderTarget(IDirect3DDevice9* dev, DWORD 
 
 static HRESULT STDMETHODCALLTYPE H_SetDepthStencilSurface(IDirect3DDevice9* dev, IDirect3DSurface9* s)
 {
+    if (!s_internal) s = SupersampleReplaceDepth(s);
     TraceSurface("SetDepthStencilSurface", 0, s);
     return o_SetDepthStencilSurface(dev, s);
 }
@@ -930,6 +933,8 @@ static HRESULT STDMETHODCALLTYPE H_SetDepthStencilSurface(IDirect3DDevice9* dev,
 static HRESULT STDMETHODCALLTYPE H_Clear(IDirect3DDevice9* dev, DWORD count, const D3DRECT* rects, DWORD flags, D3DCOLOR color, float z, DWORD stencil)
 {
     Trace("Clear(flags %lx, color %08lx, z %g, rects %lu)", flags, color, z, count);
+    D3DRECT scaled[16];
+    if (!s_internal) rects = SupersampleUiClearRects(count, rects, scaled, 16);
     return o_Clear(dev, count, rects, flags, color, z, stencil);
 }
 
@@ -948,6 +953,8 @@ static HRESULT STDMETHODCALLTYPE H_StretchRect(IDirect3DDevice9* dev, IDirect3DS
 static HRESULT STDMETHODCALLTYPE H_SetViewport(IDirect3DDevice9* dev, const D3DVIEWPORT9* vp)
 {
     if (vp) Trace("SetViewport(%lu,%lu %lux%lu)", vp->X, vp->Y, vp->Width, vp->Height);
+    D3DVIEWPORT9 ui;
+    if (!s_internal && SupersampleUiViewport(vp, &ui)) return o_SetViewport(dev, &ui);  // the pixelated look's sharp interface
     if (vp && !s_internal && s_rt0Shrink.x > 0) {  // a shrunk VATS target: the game's full-size viewport, scaled
         D3DVIEWPORT9 v = *vp;
         v.X = (DWORD)(vp->X * s_rt0Shrink.x);
@@ -964,7 +971,25 @@ static HRESULT STDMETHODCALLTYPE H_SetViewport(IDirect3DDevice9* dev, const D3DV
 static HRESULT STDMETHODCALLTYPE H_SetScissorRect(IDirect3DDevice9* dev, const RECT* r)
 {
     if (r) Trace("SetScissorRect(%ld,%ld-%ld,%ld)", r->left, r->top, r->right, r->bottom);
+    RECT ui;
+    if (!s_internal) r = SupersampleUiScissor(r, &ui);
     return o_SetScissorRect(dev, r);
+}
+
+// While the pixelated look's interface is drawn at the window's resolution, the engine gets back
+// the viewport and scissor rectangle it set (in its own, virtual, pixels).
+static HRESULT STDMETHODCALLTYPE H_GetViewport(IDirect3DDevice9* dev, D3DVIEWPORT9* vp)
+{
+    HRESULT hr = o_GetViewport(dev, vp);
+    if (SUCCEEDED(hr) && !s_internal) SupersampleUiGetViewport(vp);
+    return hr;
+}
+
+static HRESULT STDMETHODCALLTYPE H_GetScissorRect(IDirect3DDevice9* dev, RECT* r)
+{
+    HRESULT hr = o_GetScissorRect(dev, r);
+    if (SUCCEEDED(hr) && !s_internal) SupersampleUiGetScissor(r);
+    return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE H_BeginScene(IDirect3DDevice9* dev)
@@ -1143,7 +1168,9 @@ void D3DAttach(IDirect3DDevice9* dev, const char* how)
     VHOOK(vt, Clear);
     VHOOK(vt, StretchRect);
     VHOOK(vt, SetViewport);
+    VHOOK(vt, GetViewport);
     VHOOK(vt, SetScissorRect);
+    VHOOK(vt, GetScissorRect);
     VHOOK(vt, BeginScene);
     VHOOK(vt, EndScene);
     VHOOK(vt, DrawPrimitive);

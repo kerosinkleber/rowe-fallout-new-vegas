@@ -13,6 +13,10 @@ A mod for **Fallout: New Vegas** (PC) in the style of
 - **Pip-Boy FOV**: how big the Pip-Boy appears, separately from the world FOV.
 - **Supersampling** up to 64× (8× width and height; renders at a higher resolution and averages it down), in
   windowed, borderless **and** fullscreen mode. The HUD and menus keep their size.
+- **Pixelated look**: the game renders at a lower resolution (the window's divided by 2–8) and
+  each of its pixels is shown as a hard, square block of 2×2 to 8×8 window pixels instead of being
+  blurred: the whole image, or only the world with the HUD and menus kept sharp at the window's
+  resolution.
 - **Mouse trap**: the game normally captures the mouse everywhere, menus included. Mode
   "gameplay" keeps it captured in gameplay and **frees it in menus** (the game's menu cursor then
   follows the Windows cursor, which can leave the window); "always" keeps it inside the window
@@ -163,13 +167,13 @@ target `powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -F
 The settings menu (F8) is used with the mouse (sliders, lists, checkboxes; hover for an
 explanation) or the keyboard (arrows, Enter, Tab). It has four tabs: **View** (FOV, lens, scope
 overlay, zoom FOV, Pip-Boy FOV with a **take out / put away** button to see the Pip-Boy while
-setting it; "game" uses the game's own value), **Image** (supersampling,
-ReShade first), **Screenshots** (key: click and press the new key; folder; size; format; JPEG
+setting it; "game" uses the game's own value), **Image** (supersampling, pixelated look and
+whole image or world only, ReShade first), **Screenshots** (key: click and press the new key; folder; size; format; JPEG
 quality; **browse** picks the folder in a list, like ReShade's path picker), **Photo** (start / end, the shortcut,
 the fast speed, hide the HUD, freeze people) and **Other** (mouse
 trap, intro videos, **autosave** (on/off, the minutes typed in, the number of slots), menu key, **stats**: a small window with the active lens and the supersampling
 sizes, also with the menu closed). Below the tabs, **restart game** applies the settings that only take effect
-at start (supersampling, intro videos; the row says when one is waiting): the game is saved as
+at start (supersampling, pixel size, intro videos; the row says when one is waiting): the game is saved as
 `rowe_restart`, started again the way it was started (`nvse_loader.exe`, or a 4GB-patched
 `FalloutNV.exe` that loads xNVSE itself; under Mod Organizer 2 it stays in MO2's virtual file
 system) and that save is loaded. While the menu is open the game gets no mouse or
@@ -187,6 +191,8 @@ the DLL:
 | `pipboyfov` | `0` = game default (47), otherwise 20–90 in the same unit. Lower makes the Pip-Boy bigger. | `0` |
 | `lens` | `0` off, `1` auto (rectilinear up to 90°, blending into Panini by 160°), `2` Panini, `3` stereographic, `4` fisheye (equidistant: angles spread evenly from the centre; up to 160° across the screen, the corners beyond 90° to the side stay black like a fisheye lens' vignette). Only active when `fov` is set. | `1` |
 | `supersample` | Pixel-count multiplier 1–64 (`4` = twice the width and height, `16` = four times, `64` = eight times). Applies at the next start. The game's own antialiasing is reduced so that factor × samples stays ≤ 64 (16× gets 4× MSAA, 25× 2×, 36× and up none, where it adds nothing visible but takes gigabytes of video memory, most of all in VATS); FalloutPrefs.ini keeps your value. | `1` |
+| `pixelsize` | Pixelated look: `2`–`8` window pixels per game pixel across and down (`4` at 1920×1080 renders at 480×270). The game really renders at that size (every render target, the depth buffer, HDR and bloom), and each pixel is shown as a hard square block (nearest neighbour), not blurred. If the window is not a multiple of the size, the game renders a few pixels more and the overhang (less than one game pixel at each edge) is cut off, so all blocks stay square and equal. Replaces `supersample` while it is on. Applies at the next start. The game's own antialiasing (iMultiSample) still works inside the small image and softens the blocks' edges; set Antialiasing to off in the ROWE launcher (or the game's launcher) for the hardest pixels. `1` = off. | `1` |
+| `pixelhud` | Pixelated look: `1` the whole image is rendered at the low resolution, HUD, menus, console and cursor included (F8: "whole image"); `0` the HUD and menus are drawn at the window's resolution over the pixelated world (F8: "world only, HUD sharp"). Applies at once. The Pip-Boy is a 3D object in the world, so its screen is pixelated either way (larger pixel sizes make it hard to read; 2 or 3 keep it readable). | `1` |
 | `mousetrap` | `0` the game's own behaviour (mouse captured in gameplay and menus), `1` captured in gameplay, free in menus, `2` captured and kept inside the window everywhere. | `0` |
 | `skipintros` | `1` clear the intro video settings (applies at the next start) | `1` |
 | `fisheyecircle` | Fisheye only. `0` fill: the picture fills the screen's width and the sides of the rendered circle are cut off; `1` full circle: at the widest FOV (160) everything that is rendered is shown, as a circle fitted to the shorter side (with black around it). A lower FOV, aiming or a scope magnify the picture and its circle together, so the circle grows past the screen's edges and disappears, as the fill's black corners do. At 16:9 the circle fitted to the height shows about 145°. F8: View, Fisheye | `0` |
@@ -217,6 +223,11 @@ Notes:
   height are limited to 16384 (the graphics card's maximum); the mod then uses the largest factor
   that fits both. Lower the factor if the frame rate drops or the game fails to start (the
   graphics card's memory runs out).
+- Pixelated look: the lens (FOV over 90) bends the small image before it is enlarged, so the
+  blocks stay square on screen; photo mode works as usual. Screenshots are taken at the window's
+  size (blocks and sharp HUD as shown). The interface's mouse positions are in the small image's
+  units stretched over the window, which can differ from the blocks by part of one game pixel at
+  the edges when the window is not a multiple of the pixel size.
 - Windows narrower than 4:3 (5:4, 1:1, portrait): the menus, console and Pip-Boy screen are laid
   out at 4:3 in the middle of the window (the game itself cuts them off there); the HUD uses the
   window's top and bottom edges, and the pause menu's vignette, loading screens and scope overlays
@@ -248,6 +259,7 @@ The game runs window, input, game loop and rendering on one thread. All addresse
 | ReShade | When ReShade (d3d9.dll) with add-on support is loaded, the mod registers as a ReShade add-on (headers in `third_party/reshade`, v6.6.2) and keeps the effect runtime from its `init_effect_runtime` event; at Present, before the resolve, `effect_runtime::render_effects` renders the effects into the virtual back buffer (device state saved and restored around it), which also stops ReShade's own pass for that frame. |
 | Device reset | Before `Reset` (after a lost device: lock screen, display change, driver or overlay events) everything is unbound, and the occlusion queries the game keeps in its query wrapper (0x00C4ECF0), which it does not release itself, are released and created again after the reset; otherwise the reset fails and the game crashes. The mod tracks every default-pool resource, state block and query it sees created and logs the ones still alive at a reset, by creating module. `devicelost` in the command file simulates a lost device. |
 | Supersampling | The game's `iSize W/H` reads (`GetPrivateProfileIntA`) return the larger size, so the engine renders everything at it; the window creation and sizing calls get the native size back; `CreateDevice`/`Reset` get a native back buffer; the mod binds a large render target in its place and averages it down in linear light at Present (`downscale.hlsl`; for integer scales with sRGB-decoding bilinear reads, a quarter of the reads). VATS's own image-space textures (a full-size R32F depth pass and quarter-size A8R8G8B8 and A16B16G16R16F blur targets, also used by other effects such as the pause menu's background blur) are created at twice / a quarter of the window size instead, with the game's viewport scaled to them, and the blur shaders' sample steps (given in texels of the requested size) rewritten to texels of the real size, so blur and bloom keep the unmodded game's radius on screen. Writes of `iSize` to the prefs file keep the native size. If another plugin applies `FalloutCustom.ini` to the game's settings after those reads (MO2 lists often do), the mod reads that file's `iSize` where the game reads `FalloutPrefs.ini`'s (the game lists the display modes before the plugin applies it, and the extra mode must match), and the overridden `iSize` is taken as the native size before the first window is created, and `iMultiSample` gets the same cap; if the game still ends up at a size the mod did not plan for, supersampling is off for that start (F8: OFF: SIZE OVERRIDDEN). In fullscreen (where the game uses `CreateDeviceEx`) the display mode is the native one, and the larger size is listed as an extra display mode so the game's mode check accepts it. |
+| Pixelated look | The supersampling path the other way round: `iSize` reads return the window's size divided by the pixel size (rounded up to whole pixels and an even number), so the engine renders everything at it; Present draws each of its pixels as N×N window pixels with a point-sampling shader (`PSPixel` in `downscale.hlsl`), centred, the overhang cut off evenly. World only (`pixelhud=0`): at the call of `InterfaceManager::Render` (0x007144D3, after image space and the lens) the small frame is drawn into the real back buffer, and until Present the engine's binds of its back buffer as render target 0 go to the real one; its viewports, scissor rectangles and cleared rectangles are scaled from the small size to the window's (and given back unscaled by `GetViewport` / `GetScissorRect`), and its depth surface (1024×1024 for the interface, smaller than the window) is swapped for one of the window's size. At Present the engine's own bindings are restored for the next frame. The Pip-Boy is drawn in the world pass, so it stays pixelated. |
 | Mouse trap | Captured: `ClipCursor` to the window's client area while the game is in front, released on deactivation and on a crash. Free (mode 1 in menus): the game's DirectInput mouse (exclusive, cooperative level 0x5) is switched to non-exclusive, and the movement the game reads (`GetDeviceState`) is replaced by the movement that brings its menu cursor (InterfaceManager +0x38/+0x40) to the Windows cursor, through the inverse of the game's cursor acceleration (learned at run time). |
 | Intro skip | Finds `sIntroSequence`, `sMainMenuMovieIntro` and `sIntroMovie` at load and clears them in memory right after the INI files are read. |
 | Narrow screens | Below 4:3 `InterfaceManager::GetScreenWidth/Height` (0x00715D40/0x00715DA0) return 1280×960 and the interface camera (0x00713031) shows 1280 × 1280/aspect around it with its 4:3 position, so menus are laid out at 4:3 in the middle of the window. The renderer's widescreen flag (0x011C70EB) is cleared there (menu layouts, safe zones, console stretch). Clipped tiles get their scissor rectangle in the band (Tile::Update, 0x00A04640). Tiles on the Pip-Boy screen are left alone; the mod tests that itself (the tile's menu, 0x00A03C90, byte +0x1C) because HDPipboy (High Resolution Screens) turns the game's test (0x00A03C60) off. The menu cursor's pixel position uses the camera height (0x00711CF8), so it is the window position. On the Pip-Boy the screen's texture coordinate becomes a pick point for the letterboxed camera (0x007F88E3); its buttons are picked through the 3D camera at the cursor. The HUD and the VATS interface go to the window's edges (their safe zone Y is reduced by half the band, 0x0076C11E/0x00770623, VATS 0x007EA107/0x007ED566); the pause vignette and the loading screen images are scaled up to cover the window (scene nodes, at Present). Scopes: the game shows more vertically below 4:3 than the scope model (child of the node at 0x011D9770) covers, so the model is scaled by 4/3 × H/W while scoped, and the world is not clipped to the scope's sides (0x00870D3C). |
@@ -261,7 +273,7 @@ The game runs window, input, game loop and rendering on one thread. All addresse
 | `src/frame.cpp` | Per-frame order at Present |
 | `src/fov.cpp` | FOV slider |
 | `src/lens.cpp`, `src/lens.hlsl` | Lens math and warp pass |
-| `src/supersample.cpp`, `src/downscale.hlsl` | Supersampling |
+| `src/supersample.cpp`, `src/downscale.hlsl` | Supersampling and the pixelated look |
 | `src/ui.cpp` | Interface layout below 4:3 |
 | `src/dinput.cpp` | The game's DirectInput mouse (free mode, cursor steering) |
 | `src/mousetrap.cpp`, `src/intros.cpp`, `src/overlay.cpp` (settings menu), `src/screenshot.cpp`, `src/png.cpp`, `src/reshade_addon.cpp` | The smaller features |

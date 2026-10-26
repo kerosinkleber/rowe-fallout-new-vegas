@@ -37,9 +37,19 @@ static int* s_captureInto;
 static bool s_menuKeyDown;     // the menu key was down last frame (it toggles on the press)
 static char s_dirEdit[MAX_PATH];
 static bool s_dirEditing;
+static char s_wantTab[16];     // test command "overlay tab <name>": the tab to select next frame
 
 static const float kSupersampleSteps[] = {1.f, 2.f, 2.25f, 3.f, 4.f, 6.f, 8.f, 9.f, 10.f, 12.f, 16.f, 25.f, 36.f, 49.f, 64.f};
 static const int kSupersampleStepCount = sizeof(kSupersampleSteps) / sizeof(kSupersampleSteps[0]);
+static const int kPixelSteps[] = {1, 2, 3, 4, 5, 6, 8};
+
+// The tab a test command asked for is selected once.
+static ImGuiTabItemFlags TabFlags(const char* name)
+{
+    if (!s_wantTab[0] || lstrcmpiA(s_wantTab, name)) return 0;
+    s_wantTab[0] = 0;
+    return ImGuiTabItemFlags_SetSelected;
+}
 
 // ---- look ------------------------------------------------------------------------------------
 
@@ -145,6 +155,14 @@ static void FactorLabel(char* out, int size, float f, int nativeW, int nativeH)
     else _snprintf(out, size, "%gx", f);
 }
 
+// The pixelated look's size: N window pixels per game pixel, and the size the game renders at.
+static void PixelLabel(char* out, int size, int n, int nativeW, int nativeH)
+{
+    if (n < 2) { _snprintf(out, size, "off"); return; }
+    if (nativeW > 0) _snprintf(out, size, "%dx%d pixels  (%dx%d)", n, n, ((nativeW + n - 1) / n + 1) & ~1, ((nativeH + n - 1) / n + 1) & ~1);
+    else _snprintf(out, size, "%dx%d pixels", n, n);
+}
+
 // ---- folder browser (like ReShade's path picker) ---------------------------------------------
 
 static bool s_browseOpen;
@@ -241,13 +259,23 @@ static bool RestartNeeded(char* why, int size)
     why[0] = 0;
     int nw, nh, vw, vh;
     float active = SupersampleSizes(&nw, &nh, &vw, &vh) ? (float)vw * vh / ((float)nw * nh) : 1.f;
-    bool ss = !SupersampleOverridden() && fabsf(active - (g_settings.supersample > 1.01f ? g_settings.supersample : 1.f)) > 0.05f &&
+    // The pixelated look replaces supersampling while it is on (or about to be).
+    int pixel = SupersamplePixelSize(), wantPixel = g_settings.pixelSize >= 2 ? g_settings.pixelSize : 0;
+    bool px = !SupersampleOverridden() && pixel != wantPixel;
+    bool ss = !pixel && !wantPixel && !SupersampleOverridden() &&
+              fabsf(active - (g_settings.supersample > 1.01f ? g_settings.supersample : 1.f)) > 0.05f &&
               !(active > 1.01f && g_settings.supersample > 1.01f && fabsf(sqrtf(active) - sqrtf(g_settings.supersample)) < 0.01f);
     bool intros = s_startSkipIntros >= 0 && (s_startSkipIntros != 0) != g_settings.skipIntros;
-    if (ss && intros) lstrcpynA(why, "supersampling and intro videos change after a restart", size);
-    else if (ss) lstrcpynA(why, "supersampling changes after a restart", size);
-    else if (intros) lstrcpynA(why, "intro videos change after a restart", size);
-    return ss || intros;
+    const char* what[3];
+    int n = 0;
+    if (ss) what[n++] = "supersampling";
+    if (px) what[n++] = "the pixel size";
+    if (intros) what[n++] = "intro videos";
+    if (n == 1) _snprintf(why, size, "%s changes after a restart", what[0]);
+    else if (n == 2) _snprintf(why, size, "%s and %s change after a restart", what[0], what[1]);
+    else if (n == 3) _snprintf(why, size, "%s, %s and %s change after a restart", what[0], what[1], what[2]);
+    if (n) why[size - 1] = 0;
+    return n > 0;
 }
 
 static void DrawRestart()
@@ -258,7 +286,7 @@ static void DrawRestart()
     if (ImGui::Button(RestartPending() ? "restarting..." : "restart game")) ImGui::OpenPopup("Restart the game?");
     ImGui::EndDisabled();
     HudTip("Saves the game, starts it again the same way and loads the save: for the settings that only apply at start "
-        "(supersampling, intro videos).");
+        "(supersampling, pixel size, intro videos).");
     ImGui::SameLine();
     if (needed) ImGui::TextUnformatted(why);
     else ImGui::TextDisabled("nothing waiting for a restart");
@@ -341,7 +369,11 @@ static void DrawStats(float menuPx, int backW, int backH)
             else StatsRow("FOV", "game's own (%.0f)", FovBase());
             if (ScopeView()) StatsRow("Scope overlay", "%s", g_settings.scopeLens ? "bent with the lens" : "flat");
             int nw = 0, nh = 0, vw = 0, vh = 0;
-            if (SupersampleSizes(&nw, &nh, &vw, &vh)) {
+            if (SupersamplePixelSize() && SupersampleSizes(&nw, &nh, &vw, &vh)) {
+                StatsRow("Pixelated", "%dx%d window pixels each", SupersamplePixelSize(), SupersamplePixelSize());
+                StatsRow("Renders at", "%dx%d", vw, vh);
+                StatsRow("Interface", g_settings.pixelHud ? "pixelated (whole image)" : "sharp, at %dx%d", nw, nh);
+            } else if (SupersampleSizes(&nw, &nh, &vw, &vh)) {
                 StatsRow("Supersampling", "%.4gx", (float)vw * vh / ((float)nw * nh));
                 StatsRow("Renders at", "%dx%d", vw, vh);
                 StatsRow("Shown at", "%dx%d", nw, nh);
@@ -350,7 +382,10 @@ static void DrawStats(float menuPx, int backW, int backH)
                 StatsRow("Renders at", "%dx%d", backW, backH);
             }
             char why[96];
-            if (RestartNeeded(why, sizeof(why)) && strstr(why, "supersampling"))
+            if (RestartNeeded(why, sizeof(why)) && strstr(why, "pixel size")) {
+                if (g_settings.pixelSize >= 2) StatsRow("Next start", "%dx%d pixels", g_settings.pixelSize, g_settings.pixelSize);
+                else StatsRow("Next start", g_settings.supersample > 1.01f ? "supersampling %.4gx" : "pixelated off", g_settings.supersample);
+            } else if (RestartNeeded(why, sizeof(why)) && strstr(why, "supersampling"))
                 StatsRow("Next start", g_settings.supersample > 1.01f ? "%.4gx" : "off", g_settings.supersample);
             ImGui::EndTable();
         }
@@ -429,7 +464,7 @@ static void DrawMenu(int backW, int backH)
     float labelW = HudFontPx() * 11;
 
     if (ImGui::BeginTabBar("tabs")) {
-        if (ImGui::BeginTabItem("View")) {
+        if (ImGui::BeginTabItem("View", nullptr, TabFlags("View"))) {
             if (ImGui::BeginTable("view", 2, tf)) {
                 ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, labelW);
                 ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch);
@@ -487,18 +522,20 @@ static void DrawMenu(int backW, int backH)
             }
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Image")) {
+        if (ImGui::BeginTabItem("Image", nullptr, TabFlags("Image"))) {
             if (ImGui::BeginTable("image", 2, tf)) {
                 ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, labelW);
                 ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch);
                 int nw = 0, nh = 0, vw = 0, vh = 0;
-                bool active = SupersampleSizes(&nw, &nh, &vw, &vh);
-                if (!active) { nw = backW; nh = backH; }
+                bool active = SupersampleSizes(&nw, &nh, &vw, &vh) && !SupersamplePixelSize();
+                if (!SupersampleSizes(&nw, &nh, &vw, &vh)) { nw = backW; nh = backH; }
                 char cur[64];
                 FactorLabel(cur, sizeof(cur), g_settings.supersample, nw, nh);
+                bool pixelOn = g_settings.pixelSize >= 2;
                 LabelCell("Supersampling", "Renders at a higher resolution and averages it down to the window: smoother edges "
                                            "and finer detail, at a large cost in speed and video memory. Applies at the next start.");
-                if (ImGui::BeginCombo("##ss", cur)) {
+                ImGui::BeginDisabled(pixelOn);
+                if (ImGui::BeginCombo("##ss", pixelOn ? "off (pixelated look)" : cur)) {
                     for (int i = 0; i < kSupersampleStepCount; ++i) {
                         char lab[64];
                         FactorLabel(lab, sizeof(lab), kSupersampleSteps[i], nw, nh);
@@ -508,13 +545,44 @@ static void DrawMenu(int backW, int backH)
                     }
                     ImGui::EndCombo();
                 }
+                ImGui::EndDisabled();
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 ImGui::TableNextColumn();
                 if (SupersampleOverridden()) ImGui::TextDisabled("off this start: the game's size was changed by another file");
+                else if (pixelOn) ImGui::TextDisabled("off while the pixelated look is on");
                 else if (active && fabsf((float)vw * vh / ((float)nw * nh) - g_settings.supersample) < 0.05f)
                     ImGui::TextDisabled("rendering at %dx%d", vw, vh);
                 else ImGui::TextDisabled("applies at the next start");
+                char pcur[64];
+                PixelLabel(pcur, sizeof(pcur), g_settings.pixelSize, nw, nh);
+                LabelCell("Pixelated", "Renders at a lower resolution and shows it with hard, square pixels (each game pixel is "
+                                       "2x2 to 8x8 window pixels) instead of blurring it: a sharp retro look, and faster. "
+                                       "Replaces supersampling. Applies at the next start.");
+                if (ImGui::BeginCombo("##pixel", pcur)) {
+                    for (int n : kPixelSteps) {
+                        char lab[64];
+                        PixelLabel(lab, sizeof(lab), n, nw, nh);
+                        bool sel = (n < 2 && g_settings.pixelSize < 2) || n == g_settings.pixelSize;
+                        if (ImGui::Selectable(lab, sel)) { g_settings.pixelSize = n; Changed(); }
+                        if (sel) ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TableNextColumn();
+                int pixel = SupersamplePixelSize();
+                if (SupersampleOverridden()) ImGui::TextDisabled("off this start: the game's size was changed by another file");
+                else if (pixel && pixel == g_settings.pixelSize) ImGui::TextDisabled("rendering at %dx%d", vw, vh);
+                else if (pixel || pixelOn) ImGui::TextDisabled("applies at the next start");
+                else ImGui::TextDisabled("off");
+                LabelCell("Pixelated part", "With the pixelated look: whole image renders everything at the low resolution, HUD "
+                                            "and menus included. World only keeps the HUD and menus sharp at the window's resolution "
+                                            "over the pixelated world (the Pip-Boy is part of the world). Applies at once.");
+                if (HudOption("whole image", g_settings.pixelHud) && !g_settings.pixelHud) { g_settings.pixelHud = true; Changed(); }
+                ImGui::SameLine();
+                if (HudOption("world only, HUD sharp", !g_settings.pixelHud) && g_settings.pixelHud) { g_settings.pixelHud = false; Changed(); }
                 LabelCell("ReShade first", "With ReShade's add-on build: ReShade's effects are applied to the supersampled frame, "
                                            "so they are in the full-size screenshots.");
                 if (HudCheckbox("##reshade", &g_settings.reshadeFirst)) Changed();
@@ -526,7 +594,7 @@ static void DrawMenu(int backW, int backH)
             }
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Screenshots")) {
+        if (ImGui::BeginTabItem("Screenshots", nullptr, TabFlags("Screenshots"))) {
             if (ImGui::BeginTable("shots", 2, tf)) {
                 ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, labelW);
                 ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch);
@@ -585,7 +653,7 @@ static void DrawMenu(int backW, int backH)
             }
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Photo")) {
+        if (ImGui::BeginTabItem("Photo", nullptr, TabFlags("Photo"))) {
             if (ImGui::BeginTable("photo", 2, tf)) {
                 ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, labelW);
                 ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch);
@@ -623,7 +691,7 @@ static void DrawMenu(int backW, int backH)
             }
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Other")) {
+        if (ImGui::BeginTabItem("Other", nullptr, TabFlags("Other"))) {
             if (ImGui::BeginTable("other", 2, tf)) {
                 ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, labelW);
                 ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch);
@@ -732,7 +800,8 @@ void OverlayCommand(const char* arg)
 {
     if (!lstrcmpiA(arg, "open")) s_open = true;
     else if (!lstrcmpiA(arg, "close")) s_open = false;
-    else Log("overlay: unknown command '%s' (open, close)", arg);
+    else if (!_strnicmp(arg, "tab ", 4)) lstrcpynA(s_wantTab, arg + 4, sizeof(s_wantTab));
+    else Log("overlay: unknown command '%s' (open, close, tab <name>)", arg);
 }
 
 bool OverlayOpen() { return s_open; }

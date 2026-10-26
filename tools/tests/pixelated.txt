@@ -1,0 +1,58 @@
+# Pixelated look, windowed or borderless (start with rowe.ini pixelsize=N and pixelhud=1 for the
+# whole image at the low resolution, 0 for the world only with a sharp interface): shots of the
+# main menu, gameplay, the scene before the HUD, the Pip-Boy, the pause menu, the settings menu's
+# Image tab, the lens at FOV 120 and after a simulated device loss; a frame trace in gameplay.
+# The runner focuses the game when the log shows "focus now 1". Nothing is saved. Ends with fov 0.
+log pixelated: boot
+waitmenu 1013 3600
+wait 60
+shot
+con load "ROWE Photo Test"
+waitgameplay 3600
+wait 60
+log pixelated: focus now 1
+wait 120
+waitfocus 1200
+ifmenu 1013 key esc
+waitnomenu 1013 300
+wait 60
+ifmenu 1013 key esc
+waitnomenu 1013 300
+waitgameplay 600
+wait 150
+log gameplay
+shot
+shotscene
+trace
+wait 10
+log pipboy
+con TapControl 14
+wait 120
+shot
+con TapControl 14
+wait 120
+log pause menu
+key esc
+wait 60
+shot
+key esc
+waitnomenu 1013 300
+wait 60
+log overlay
+overlay open
+overlay tab image
+wait 5
+shotmenu
+overlay close
+log lens fov 120
+set fov 120
+wait 30
+shot
+set fov 0
+wait 10
+log device lost
+devicelost
+wait 120
+shot
+log pixelated: done
+con qqq

@@ -253,7 +253,7 @@ static void StartUserShot(IDirect3DDevice9* dev, IDirect3DSurface9* windowFrame,
         return;
     }
     IDirect3DSurface9* src = nullptr;
-    if (!(full && SupersampleBackBuffer(&src))) {  // the supersampled frame, or the window's
+    if (!(full && !SupersamplePixelSize() && SupersampleBackBuffer(&src))) {  // the supersampled frame, or the window's
         src = windowFrame;
         src->AddRef();
     }

@@ -75,3 +75,17 @@ float4 PSFast(float2 vpos : VPOS) : COLOR
     }
     return float4(ToSrgb(acc / wsum), 1);
 }
+
+// Pixelated look (pixelsize=N): the frame is rendered at 1/N of the window per axis and shown with
+// hard square pixels, N x N window pixels each (nearest neighbour). The rendered frame can be up to
+// a few window pixels larger than N times the window (it is rounded up so whole pixels cover the
+// window); the extra is cut off evenly at both edges.
+float4 pixelOrigin : register(c1);  // window pixel where the frame's left / top edge lands (<= 0)
+
+float4 PSPixel(float2 vpos : VPOS) : COLOR
+{
+    float n = scaleSize.x;  // window pixels per frame pixel (integer)
+    float2 size = scaleSize.zw;
+    float2 t = floor((floor(vpos) - pixelOrigin.xy) / n);
+    return float4(tex2Dlod(Src, float4((min(t, size - 1) + 0.5) / size, 0, 0)).rgb, 1);
+}

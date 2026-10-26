@@ -566,6 +566,29 @@ void LensPostImageSpace(IDirect3DDevice9* dev)
     s_earlyFrame = FrameCount();
 }
 
+// The Pip-Boy's frame before the UI, from render target 0: where the cursor is cut out, and what
+// tells cursor pixels apart.
+static void CapturePre(IDirect3DDevice9* dev)
+{
+    s_preValid = false;
+    IDirect3DSurface9* rt = nullptr;
+    if (SUCCEEDED(dev->GetRenderTarget(0, &rt)) && rt) {
+        D3DSURFACE_DESC d;
+        rt->GetDesc(&d);
+        if (d.MultiSampleType == D3DMULTISAMPLE_NONE && PreparePre(dev, d) &&
+            SUCCEEDED(dev->StretchRect(rt, nullptr, s_preSurface, nullptr, D3DTEXF_NONE)))
+            s_preValid = true;
+        rt->Release();
+    }
+}
+
+// After the pixelated look moved the interface to the window's resolution: the Pip-Boy's copy is
+// taken again there (the warp after the UI works on that frame).
+void LensPreUIRetarget(IDirect3DDevice9* dev)
+{
+    if (s_deferredFov > 0 && SupersampleSplitThisFrame()) CapturePre(dev);
+}
+
 void LensPreUI(IDirect3DDevice9* dev)
 {
     s_deferredFov = 0;
@@ -576,16 +599,7 @@ void LensPreUI(IDirect3DDevice9* dev)
     if (lensFov <= 0) return;
     if (PipboyScreenActive()) {
         s_deferredFov = lensFov;
-        // The frame before the UI: where the cursor is cut out, and what tells cursor pixels apart.
-        IDirect3DSurface9* rt = nullptr;
-        if (SUCCEEDED(dev->GetRenderTarget(0, &rt)) && rt) {
-            D3DSURFACE_DESC d;
-            rt->GetDesc(&d);
-            if (d.MultiSampleType == D3DMULTISAMPLE_NONE && PreparePre(dev, d) &&
-                SUCCEEDED(dev->StretchRect(rt, nullptr, s_preSurface, nullptr, D3DTEXF_NONE)))
-                s_preValid = true;
-            rt->Release();
-        }
+        CapturePre(dev);
         return;
     }
     IDirect3DSurface9* rt = nullptr;
@@ -709,11 +723,20 @@ void LensPresent(IDirect3DDevice9* dev, IDirect3DSurface9* frame)
     if (s_deferredFov <= 0 || !frame) return;
     D3DSURFACE_DESC d;
     frame->GetDesc(&d);
+    // Frame pixels per render pixel: 1, except for the pixelated look's interface at the window's
+    // resolution (the cursor's position and the mapping for the mouse stay in render pixels).
+    int rw = 0, rh = 0;
+    D3DBackBufferSize(&rw, &rh);
+    float kx = rw > 0 ? (float)d.Width / rw : 1.f, ky = rh > 0 ? (float)d.Height / rh : 1.f;
     // The cursor's area around its hit point (the cursor image extends right and down from it).
     float qx, qy;
     HoleRect hole;
     // (FrameCount advances at the start of Present, so a flag ties the pre-UI copy to this frame.)
     bool cut = preValid && s_pre && s_copyW == d.Width && s_copyH == d.Height && DinputGameCursor(&qx, &qy);
+    if (cut) {
+        qx *= kx;
+        qy *= ky;
+    }
     // Where the game draws its cursor: at its position.
     float dx = qx, dy = qy;
     if (cut) {
@@ -725,11 +748,11 @@ void LensPresent(IDirect3DDevice9* dev, IDirect3DSurface9* frame)
     if (cut && MapToOutput(s_deferredFov, d.Width, d.Height, qx, qy, &px, &py)) {
         DrawCursor(dev, frame, hole, px - dx, py - dy);
         s_cursorDrawn = true;
-        s_cursorOutX = px;
-        s_cursorOutY = py;
+        s_cursorOutX = px / kx;
+        s_cursorOutY = py / ky;
     }
-    s_postW = d.Width;
-    s_postH = d.Height;
+    s_postW = (int)(d.Width / kx + 0.5f);
+    s_postH = (int)(d.Height / ky + 0.5f);
     s_postFrame = FrameCount();
     s_deferredFov = 0;
 }

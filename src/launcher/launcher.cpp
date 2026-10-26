@@ -151,6 +151,7 @@ static int g_adapter, g_width, g_height, g_effects;  // effects: 0 none, 1 bloom
 static int g_reflect;                                 // water reflection quality 0..2 (256 / 512 / 1024), -1 other
 static bool g_softReflect;
 static float g_supersample = 1;
+static int g_pixelSize = 1;  // the mod's pixelated look (1 = off)
 static IniFile g_sizeWhere;
 // The mod's keys and screenshot folder (rowe.ini; key names as KeyFromName reads them).
 static int g_menuKey = VK_F8, g_shotKey = VK_F12;
@@ -201,6 +202,7 @@ static void Reload()
     GetPrivateProfileStringA("rowe", "supersample", "1", v, sizeof(v), g_paths.modIni.c_str());
     g_supersample = (float)atof(v);
     if (g_supersample < 1) g_supersample = 1;
+    g_pixelSize = GetPrivateProfileIntA("rowe", "pixelsize", 1, g_paths.modIni.c_str());
     g_menuKey = ReadModKey("menukey", "F8");
     g_shotKey = ReadModKey("screenshotkey", "F12");
     char dir[MAX_PATH];
@@ -612,6 +614,14 @@ static void FactorLabel(char* out, int size, float f)
     _snprintf(out, size, "%gx  (%dx%d)%s", f, w, h, (w > 16384 || h > 16384) ? "  limited to 16384" : "");
 }
 
+static const int kPixelSteps[] = {1, 2, 3, 4, 5, 6, 8};
+
+static void PixelLabel(char* out, int size, int n)
+{
+    if (n < 2) { _snprintf(out, size, "off"); return; }
+    _snprintf(out, size, "%dx%d pixels  (%dx%d)", n, n, ((g_width + n - 1) / n + 1) & ~1, ((g_height + n - 1) / n + 1) & ~1);
+}
+
 static void Aspect(char* out, int size, int w, int h)
 {
     int a = w, b = h;
@@ -775,7 +785,9 @@ static void DrawDisplayRows()
               kIniNone);
     char ss[96];
     FactorLabel(ss, sizeof(ss), g_supersample);
-    if (ImGui::BeginCombo("##ss", ss, ImGuiComboFlags_HeightLarge)) {
+    bool pixelOn = g_pixelSize >= 2;
+    ImGui::BeginDisabled(pixelOn);
+    if (ImGui::BeginCombo("##ss", pixelOn ? "off (pixelated look)" : ss, ImGuiComboFlags_HeightLarge)) {
         for (float f : kSupersampleSteps) {
             char l[96];
             FactorLabel(l, sizeof(l), f);
@@ -785,6 +797,29 @@ static void DrawDisplayRows()
                 _snprintf(v, sizeof(v) - 1, "%g", f);
                 v[sizeof(v) - 1] = 0;
                 if (WritePrivateProfileStringA("rowe", "supersample", v, g_paths.modIni.c_str())) Status(false, "Supersampling %gx saved to rowe.ini", f);
+                else Status(true, "Could not write %s", g_paths.modIni.c_str());
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::EndDisabled();
+    // Pixelated look (the mod's)
+    LabelCell("Pixelated", "ROWE renders at a smaller size and shows it with hard, square pixels (each game pixel is 2x2 to 8x8 "
+                           "pixels of the resolution above) instead of blurring it. Replaces supersampling. For the hardest "
+                           "pixels set Antialiasing to off.",
+              kIniNone);
+    char px[96];
+    PixelLabel(px, sizeof(px), g_pixelSize);
+    if (ImGui::BeginCombo("##pixel", px)) {
+        for (int n : kPixelSteps) {
+            char l[96];
+            PixelLabel(l, sizeof(l), n);
+            if (ImGui::Selectable(l, n == g_pixelSize || (n < 2 && g_pixelSize < 2))) {
+                g_pixelSize = n;
+                char v[16];
+                _snprintf(v, sizeof(v) - 1, "%d", n);
+                v[sizeof(v) - 1] = 0;
+                if (WritePrivateProfileStringA("rowe", "pixelsize", v, g_paths.modIni.c_str())) Status(false, "Pixelated look %s saved to rowe.ini", l);
                 else Status(true, "Could not write %s", g_paths.modIni.c_str());
             }
         }

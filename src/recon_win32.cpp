@@ -217,6 +217,10 @@ static UINT WINAPI Hook_GetPrivateProfileIntA(LPCSTR app, LPCSTR key, INT def, L
         s_sizeFile = file;
     }
     r = SupersampleIniInt(app, key, r, ReadOtherSide);
+    if (g_settings.devMsaa >= 0 && key && !IS_INTRESOURCE(key) && !lstrcmpiA(key, "iMultiSample")) {
+        Log("dev: iMultiSample %u overridden to %d", r, g_settings.devMsaa);
+        r = g_settings.devMsaa;
+    }
     r = SupersampleIniMsaa(app, key, r);
     if (g_settings.devFullscreen >= 0 && key && !IS_INTRESOURCE(key) && !lstrcmpiA(key, "bFull Screen")) {
         Log("dev: bFull Screen %u overridden to %d", r, g_settings.devFullscreen);
@@ -232,6 +236,11 @@ static BOOL WINAPI Hook_WritePrivateProfileStringA(LPCSTR app, LPCSTR key, LPCST
 {
     char buf[16];
     value = SupersampleIniWrite(app, key, value, buf);
+    if (g_settings.devMsaa >= 0 && file && key && !IS_INTRESOURCE(key) && !lstrcmpiA(key, "iMultiSample")) {
+        UINT prefs = s_GetPrivateProfileIntA("Display", "iMultiSample", 0, file);  // the file keeps its own value
+        wsprintfA(buf, "%u", prefs);
+        value = buf;
+    }
     static LONG n;
     if (KeyOfInterest(key) || InterlockedIncrement(&n) <= 5)
         Log("ini WRITE [%s] %s = \"%s\" (%s)", Str(app), Str(key), Str(value), Str(file));
