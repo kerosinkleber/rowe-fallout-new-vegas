@@ -2,7 +2,6 @@
 #include "gamefiles.h"
 #include "oldnames.h"
 #include <shlobj.h>
-#include <tlhelp32.h>
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>
@@ -22,22 +21,17 @@ static std::string Lower(std::string s)
 
 // ---- finding the game ------------------------------------------------------------------------
 
-// The process that started this one.
-static bool ParentExe(char* out, DWORD size)
+// Mod Organizer 2's folder when it started this process: its virtual file system DLL (usvfs_x86.dll,
+// next to ModOrganizer.exe) is loaded into the programs it starts. With a trailing backslash, or "".
+static std::string Mo2Folder()
 {
-    DWORD self = GetCurrentProcessId(), parent = 0;
-    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (snap == INVALID_HANDLE_VALUE) return false;
-    PROCESSENTRY32 pe = {sizeof(pe)};
-    for (BOOL ok = Process32First(snap, &pe); ok; ok = Process32Next(snap, &pe))
-        if (pe.th32ProcessID == self) parent = pe.th32ParentProcessID;
-    CloseHandle(snap);
-    if (!parent) return false;
-    HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, parent);
-    if (!h) return false;
-    bool ok = QueryFullProcessImageNameA(h, 0, out, &size) != 0;
-    CloseHandle(h);
-    return ok;
+    HMODULE vfs = GetModuleHandleA("usvfs_x86.dll");
+    char path[MAX_PATH];
+    if (!vfs || !GetModuleFileNameA(vfs, path, MAX_PATH)) return "";
+    char* name = strrchr(path, '\\');
+    if (!name) return "";
+    name[1] = 0;
+    return Exists(std::string(path) + "ModOrganizer.exe") ? path : "";
 }
 
 // A value of Mod Organizer 2's ini: key=@ByteArray(value) or key=value, backslashes doubled.
@@ -55,16 +49,13 @@ static std::string Mo2Value(const std::string& ini, const char* key)
     return out;
 }
 
-// Started by Mod Organizer 2: its instance's ini (portable: next to ModOrganizer.exe; otherwise
+// Started by Mod Organizer 2 (Mo2Folder): its instance's ini (portable: next to ModOrganizer.exe; otherwise
 // %LOCALAPPDATA%\ModOrganizer\<current instance>).
 static std::string Mo2Ini()
 {
-    char exe[MAX_PATH];
-    if (!ParentExe(exe, MAX_PATH)) return "";
-    char* name = strrchr(exe, '\\');
-    if (!name || _stricmp(name + 1, "ModOrganizer.exe")) return "";
-    name[1] = 0;
-    std::string ini = std::string(exe) + "ModOrganizer.ini";
+    std::string mo = Mo2Folder();
+    if (mo.empty()) return "";
+    std::string ini = mo + "ModOrganizer.ini";
     if (Exists(ini)) return ini;
     char inst[MAX_PATH] = "";
     DWORD size = sizeof(inst);
@@ -126,17 +117,9 @@ bool FindGame(GamePaths* p)
     return !p->game.empty();
 }
 
-bool GameRunning()
-{
-    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (snap == INVALID_HANDLE_VALUE) return false;
-    PROCESSENTRY32 pe = {sizeof(pe)};
-    bool found = false;
-    for (BOOL ok = Process32First(snap, &pe); ok && !found; ok = Process32Next(snap, &pe))
-        found = !_stricmp(pe.szExeFile, "FalloutNV.exe");
-    CloseHandle(snap);
-    return found;
-}
+// The game's window (its class is "Fallout: New Vegas"; no process list, which virus scanners
+// weigh against small programs).
+bool GameRunning() { return FindWindowA("Fallout: New Vegas", nullptr) != nullptr; }
 
 // ---- INI files -------------------------------------------------------------------------------
 

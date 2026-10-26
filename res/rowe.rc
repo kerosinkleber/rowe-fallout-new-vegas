@@ -1,5 +1,6 @@
-// Resources of the three binaries. Built three times by build.bat with ROWE_FILE set to the
-// file's name and ROWE_DESC to its description; ROWE_EXE adds the icon and the manifest.
+// Resources of rowe.dll and rowe_launcher.exe, included by rowe_dll.rc / rowe_launcher.rc with
+// ROWE_FILE set to the file's name and ROWE_DESC to its description; ROWE_EXE adds the icon and the
+// manifest.
 #include <winver.h>
 #include "version.h"
 

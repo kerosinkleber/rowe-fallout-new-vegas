@@ -33,14 +33,14 @@ rem local folder (user name, build directory) ends up in the binaries.
 set "ROOT=%~dp0"
 set "TRIM=/d1trimfile:%ROOT:~0,-1%"
 rem Version information, and for the two programs an icon and a manifest (res\rowe.rc).
-for %%r in (rowe_dll rowe_launcher rowe_mo2setup) do (
+for %%r in (rowe_dll rowe_launcher) do (
   rc /nologo /i"%~dp0res" /fo"%OUT%\%%r.res" "%~dp0res\%%r.rc" || exit /b 1
 )
 cl /nologo /O2 /MT /EHsc /W3 /std:c++17 /D_CRT_SECURE_NO_WARNINGS "%TRIM%" /LD /I"%OUT%" /I"%~dp0third_party\reshade" /I"%~dp0third_party\imgui" /I"%~dp0third_party\fonts" /DIMGUI_IMPL_WIN32_DISABLE_GAMEPAD /Fo"%OUT%\\" /Fe"%OUT%\rowe.dll" ^
   "%SRC%\main.cpp" "%SRC%\detour.cpp" "%SRC%\crashlog.cpp" "%SRC%\settings.cpp" "%SRC%\keynames.cpp" "%SRC%\oldnames.cpp" "%SRC%\png.cpp" ^
   "%SRC%\d3d9hook.cpp" "%SRC%\frame.cpp" "%SRC%\screenshot.cpp" "%SRC%\overlay.cpp" ^
   "%SRC%\fov.cpp" "%SRC%\lens.cpp" "%SRC%\mousetrap.cpp" "%SRC%\intros.cpp" "%SRC%\supersample.cpp" "%SRC%\dinput.cpp" "%SRC%\ui.cpp" ^
-  "%SRC%\recon_win32.cpp" "%SRC%\recon_engine.cpp" "%SRC%\gamecmd.cpp" "%SRC%\reshade_addon.cpp" "%SRC%\restart.cpp" "%SRC%\gameui.cpp" "%SRC%\gamefont.cpp" "%SRC%\hudstyle.cpp" "%SRC%\borderless.cpp" "%SRC%\mcm.cpp" "%SRC%\autosave.cpp" "%SRC%\photo.cpp" "%SRC%\mo2setup.cpp" "%SRC%\mo2common.cpp" "%OUT%\rowe_dll.res" ^
+  "%SRC%\recon_win32.cpp" "%SRC%\recon_engine.cpp" "%SRC%\gamecmd.cpp" "%SRC%\reshade_addon.cpp" "%SRC%\restart.cpp" "%SRC%\gameui.cpp" "%SRC%\gamefont.cpp" "%SRC%\hudstyle.cpp" "%SRC%\borderless.cpp" "%SRC%\mcm.cpp" "%SRC%\autosave.cpp" "%SRC%\photo.cpp" "%OUT%\rowe_dll.res" ^
   "%~dp0third_party\imgui\imgui.cpp" "%~dp0third_party\imgui\imgui_draw.cpp" "%~dp0third_party\imgui\imgui_tables.cpp" "%~dp0third_party\imgui\imgui_widgets.cpp" ^
   "%~dp0third_party\imgui\backends\imgui_impl_dx9.cpp" "%~dp0third_party\imgui\backends\imgui_impl_win32.cpp" ^
   /link user32.lib kernel32.lib advapi32.lib dxguid.lib ole32.lib oleaut32.lib windowscodecs.lib shell32.lib || exit /b 1
@@ -54,13 +54,6 @@ cl /nologo /O2 /MT /EHsc /W3 /std:c++17 /D_CRT_SECURE_NO_WARNINGS "%TRIM%" /I"%S
   "%~dp0third_party\imgui\backends\imgui_impl_dx9.cpp" "%~dp0third_party\imgui\backends\imgui_impl_win32.cpp" ^
   /link /SUBSYSTEM:WINDOWS user32.lib gdi32.lib kernel32.lib advapi32.lib shell32.lib ole32.lib d3d9.lib dwmapi.lib || exit /b 1
 echo Built %OUT%\rowe_launcher.exe
-
-rem The Mod Organizer 2 setup helper (rowe_mo2setup.exe), installed only with the installer's MO2 options.
-if not exist "%OUT%\mo2setup" mkdir "%OUT%\mo2setup"
-cl /nologo /O2 /MT /EHsc /W3 /std:c++17 /D_CRT_SECURE_NO_WARNINGS "%TRIM%" /I"%SRC%" /Fo"%OUT%\mo2setup\\" /Fe"%OUT%\rowe_mo2setup.exe" ^
-  "%SRC%\mo2helper.cpp" "%SRC%\mo2common.cpp" "%OUT%\rowe_mo2setup.res" ^
-  /link /SUBSYSTEM:WINDOWS user32.lib kernel32.lib advapi32.lib shell32.lib ole32.lib || exit /b 1
-echo Built %OUT%\rowe_mo2setup.exe
 
 rem The optional plugin that lists ROWE in The Mod Configuration Menu (tools\make_mcm_esp.py; needs Python).
 python "%~dp0tools\make_mcm_esp.py" "%OUT%\ROWE - MCM.esp" || echo Python not found: "ROWE - MCM.esp" not written

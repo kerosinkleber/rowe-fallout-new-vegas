@@ -1,4 +1,0 @@
-#define ROWE_FILE "rowe_mo2setup.exe"
-#define ROWE_DESC "ROWE setup for Mod Organizer 2 (start option, desktop shortcut)"
-#define ROWE_EXE
-#include "rowe.rc"

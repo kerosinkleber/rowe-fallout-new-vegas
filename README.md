@@ -36,16 +36,19 @@ It is an xNVSE plugin (`Data\NVSE\Plugins\rowe.dll`). No game files are modified
 ## Installing
 
 **Mod Organizer 2 / Vortex:** install `ROWE-<date>.zip` from the
-[releases](https://github.com/kerosinkleber/rowe-fallout-new-vegas/releases). Its installer asks for:
+[releases](https://github.com/kerosinkleber/rowe-fallout-new-vegas/releases). Its installer offers the
+**MCM page** (pre-ticked when The Mod Configuration Menu is active).
 
-- **MCM page** (pre-ticked when The Mod Configuration Menu is active);
-- **Start the game with the ROWE launcher** (MO2 only): the launcher becomes MO2's start option.
-  Start the game once through MO2 (any executable), quit, close MO2: from the next MO2 start
-  "ROWE Launcher" is selected. ModOrganizer.ini is backed up first; the step is logged to
-  `rowe_mo2setup.log` in MO2's logs folder;
-- **Desktop shortcut** (MO2 only): "Fallout New Vegas (ROWE)" starts the launcher through MO2,
-  created at the same time. Windows asks for permission when it is created. While the game runs,
-  MO2 shows a small "waiting on an application" window (as for any MO2 shortcut): leave it open.
+To start the game with the **ROWE launcher** from Mod Organizer 2, add it once:
+
+1. Choose `<Edit...>` in the list next to the Run button (the executables), click `+` and
+   **Add from file**, pick this mod's `NVSE\Plugins\rowe_launcher.exe` (in MO2's mods folder, for
+   example `mods\ROWE for Fallout New Vegas\NVSE\Plugins\rowe_launcher.exe`), name it
+   "ROWE Launcher" and click OK.
+2. Choose "ROWE Launcher" in that list and click **Run**; MO2 keeps it selected.
+3. Desktop shortcut (optional): the **Shortcut** button next to Run, then **Desktop**. It starts the
+   launcher through MO2 (while the game runs MO2 shows a small "waiting on an application" window,
+   as for any MO2 shortcut: leave it open).
 
 **By hand** (`ROWE-<date>-manual.zip`):
 

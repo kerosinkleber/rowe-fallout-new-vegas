@@ -1,5 +1,4 @@
-// Version information shared by the resource scripts (rowe.dll, rowe_launcher.exe,
-// rowe_mo2setup.exe). The release date, as the release archives are named.
+// Version information shared by the resource scripts (rowe.dll, rowe_launcher.exe). The release date, as the release archives are named.
 #define ROWE_VERSION_NUM 2026, 10, 25, 1
 #define ROWE_VERSION_STR "2026.10.25.1"
 #define ROWE_PRODUCT "ROWE for Fallout New Vegas"
