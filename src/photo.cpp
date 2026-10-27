@@ -1,10 +1,11 @@
 // Photo mode (the photo shortcut, default F10, also with Ctrl / Alt): the player flies with
 // collision off ("tcl": the movement keys move them where the camera looks, up and down too),
-// invisible (SetActorAlpha 0), undetectable (ToggleDetection), seen from the third person (a tap
-// of the POV control if they were in the first; the invisible body leaves a free view), with the
-// HUD hidden (ToggleMenus) if photohud=1 and people and creatures stopped (ToggleAI) if
-// photofreeze=1. Because the player really moves, the game crosses cells and loads the world as
-// when walking (a free camera, "tfc", leaves the player behind and nothing loads where it flies,
+// invisible (SetActorAlpha 0, and their 3D culled, which also hides the shadow: see HideBody),
+// with the weapon holstered (drawn again at the end), undetectable (ToggleDetection), seen from
+// the third person (a tap of the POV control if they were in the first; the invisible body leaves
+// a free view), with the HUD hidden (ToggleMenus) if photohud=1 and people and creatures stopped
+// (ToggleAI) if photofreeze=1. Because the player really moves, the game crosses cells and loads
+// the world as when walking (a free camera, "tfc", leaves the player behind and nothing loads where it flies,
 // and moving the player after it with SetPos leaves their cell behind and crashed the game).
 // Holding Shift flies photofast times faster, Space flies up and Ctrl down: see Hook_SetPosition.
 // The game's Run, Jump and Sneak controls are off while photo mode is on (Shift would also switch
@@ -14,7 +15,8 @@
 // a marker (PlaceAtMe XMarkerHeading), and the player is moved to it (MoveTo) a moment after the
 // collision is back on (a move while flying is lost). Opening a menu (the pause menu with its
 // Save, the Pip-Boy), loading a game, the main menu and quitting end it as well, and Quicksave is
-// off while it is on: a save would keep the invisible player.
+// off while it is on: a save would keep the invisible player. Esc does not reach the game while it
+// is on (dinput.cpp), so it does not open the pause menu and end photo mode.
 // Everything is put back as it was: each toggle is toggled back only if photo mode toggled it
 // (and the state is tracked, so an early end never toggles one twice), Quicksave and Run are
 // (and Jump and Sneak) enabled only if they were, the speed scale goes back to 1, the marker is
@@ -27,6 +29,12 @@
 #include "fnvfov.h"
 
 static bool s_active, s_keyDown;
+static bool s_bodyHidden;  // the player's 3D is culled by HideBody
+static bool s_holstered;   // photo mode holstered the player's weapon
+// Put back once the game is in gameplay again: photo mode may end in a menu (the Pip-Boy, which
+// holsters the weapon itself; drawing it there crashed the game when the Pip-Boy closed), and the
+// POV control does nothing in a menu.
+static bool s_drawPending, s_povPending;
 static bool s_noclip, s_hudHidden, s_aiStopped, s_povSwitched, s_undetected, s_invisible, s_quicksaveOff, s_runOff, s_jumpOff,
     s_sneakOff;
 static float s_startX, s_startY, s_startZ;  // where the player was when photo mode started
@@ -120,11 +128,51 @@ static void ZoomEase()
     if (fabsf(s_zoom - s_zoomTarget) < 1e-4f) s_zoom = s_zoomTarget;
 }
 
+// The hidden body, again right before the shadow maps are drawn (Render's three calls of
+// RenderShadowMaps 0x871290): in the third person the game clears the culled bit every frame, and
+// set only in the main loop or at the start of Render it was clear again when the shadows were drawn.
+static void HideBody(bool hide);
+static DWORD s_shadowCalls;
+static int s_shadowSites;
+
+static void BeforeShadows()
+{
+    ++s_shadowCalls;
+    if (s_active) HideBody(true);
+}
+
+// pushad; pushfd; call fn; popfd; popad; jmp [target]
+static void* MakeThunk(void* fn, void* target)
+{
+    BYTE* t = (BYTE*)VirtualAlloc(nullptr, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!t) return nullptr;
+    BYTE* p = t;
+    *p++ = 0x60;
+    *p++ = 0x9C;
+    *p++ = 0xE8; *(int*)p = (int)((BYTE*)fn - (p + 4)); p += 4;
+    *p++ = 0x9D;
+    *p++ = 0x61;
+    void** slot = (void**)(t + 48);
+    *slot = target;
+    *p++ = 0xFF; *p++ = 0x25; *(void***)p = slot;
+    return t;
+}
+
 void PhotoInstall()
 {
     static const BYTE kStart[] = {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x08};  // push ebp; mov ebp, esp; sub esp, 8
     s_setPosition = (SetPositionFn)InstallDetour(0x00931620, kStart, sizeof(kStart), (void*)Hook_SetPosition,
                                                  "PlayerCharacter::SetPosition (photo mode speed, up / down)");
+    static const DWORD kShadowSites[] = {0x00870851, 0x00870A74, 0x00870C3C};
+    for (DWORD va : kShadowSites) {
+        BYTE* site = (BYTE*)va;
+        if (site[0] != 0xE8) {
+            PatchCall(va, 0x00871290, nullptr, "RenderShadowMaps call (photo mode: no player shadow)");  // logs the skip
+            continue;
+        }
+        void* thunk = MakeThunk((void*)BeforeShadows, (void*)(va + 5 + *(int*)(site + 1)));
+        if (thunk && PatchCall(va, 0x00871290, thunk, "RenderShadowMaps call (photo mode: no player shadow)")) ++s_shadowSites;
+    }
 }
 
 static bool PlayerPos(float* x, float* y, float* z)
@@ -153,6 +201,47 @@ static DWORD CellId()
     BYTE* pl = *(BYTE**)0x011DEA3C;
     BYTE* cell = pl && !IsBadReadPtr(pl + 0x40, 4) ? *(BYTE**)(pl + 0x40) : nullptr;
     return cell && !IsBadReadPtr(cell + 0x0C, 4) ? *(DWORD*)(cell + 0x0C) : 0;
+}
+
+// The player's third-person 3D (TESObjectREFR::renderState +0x64, its NiNode +0x14), or null.
+static BYTE* PlayerNode()
+{
+    BYTE* pl = *(BYTE**)0x011DEA3C;
+    BYTE* rs = pl && !IsBadReadPtr(pl + 0x64, 4) ? *(BYTE**)(pl + 0x64) : nullptr;
+    BYTE* node = rs && !IsBadReadPtr(rs + 0x14, 4) ? *(BYTE**)(rs + 0x14) : nullptr;
+    return node && !IsBadReadPtr(node, 0x34) ? node : nullptr;
+}
+
+// Culls the player's 3D (NiAVObject flags +0x30, bit 0 "app culled") or lets it be drawn again.
+// SetActorAlpha 0 fades the body but not its shadow (nor a drawn weapon's); a culled node draws
+// nothing, those included. Set again every frame while photo mode is on (a POV switch or a new 3D
+// may clear it), cleared at the end before the POV goes back.
+static void HideBody(bool hide)
+{
+    BYTE* node = PlayerNode();
+    if (!node) return;
+    DWORD* flags = (DWORD*)(node + 0x30);
+    if (hide && !(*flags & 1)) {
+        if (!s_bodyHidden) {
+            const char* name = !IsBadReadPtr(node + 8, 4) && *(char**)(node + 8) && !IsBadReadPtr(*(char**)(node + 8), 1)
+                                   ? *(char**)(node + 8) : "?";
+            Log("photo: player 3D %p '%.40s' flags %08lX culled", node, name, *flags);
+        }
+        *flags |= 1;
+    } else if (!hide && (*flags & 1)) {
+        *flags &= ~1u;
+    }
+    s_bodyHidden = hide;
+}
+
+// Draws or holsters the player's weapon with its animation (Actor 0x8A6840, thiscall (bool out),
+// as JIP LN's SetWeaponOut).
+static void SetWeaponOut(bool out)
+{
+    void* pl = *(void**)0x011DEA3C;
+    if (!pl) return;
+    typedef void(__thiscall * SetWeaponOutFn)(void*, bool);
+    ((SetWeaponOutFn)0x008A6840)(pl, out);
 }
 
 static void SetNoclip(bool on)
@@ -186,20 +275,31 @@ static void Enter()
     s_active = true;
     s_haveLast = false;
     s_lastTime.QuadPart = 0;
-    if (!PlayerPos(&s_startX, &s_startY, &s_startZ)) s_startX = s_startY = s_startZ = 0;
-    BYTE* pl = *(BYTE**)0x011DEA3C;
-    s_startRot = pl ? *(float*)(pl + 0x2C) * 57.29578f : 0.f;
-    s_startWorld = WorldspaceId();
+    // Started again before the player was moved back: it carries on from the same start (and
+    // marker), and what was still to be put back is put back at its end.
+    bool resume = s_backAt != 0;
     s_backAt = 0;
-    // An XMarkerHeading (0x34 in FalloutNV.esm) by its ID: editor IDs are not kept at runtime.
-    s_marker = ScriptRef("let rBase := BuildRef 0 52\nlet rOut := player.PlaceAtMe rBase 1");
+    if (!resume) {
+        if (!PlayerPos(&s_startX, &s_startY, &s_startZ)) s_startX = s_startY = s_startZ = 0;
+        BYTE* pl = *(BYTE**)0x011DEA3C;
+        s_startRot = pl ? *(float*)(pl + 0x2C) * 57.29578f : 0.f;
+        s_startWorld = WorldspaceId();
+        // An XMarkerHeading (0x34 in FalloutNV.esm) by its ID: editor IDs are not kept at runtime.
+        s_marker = ScriptRef("let rBase := BuildRef 0 52\nlet rOut := player.PlaceAtMe rBase 1");
+    }
     SetNoclip(true);
     GameConsole("player.SetActorAlpha 0");
     s_invisible = true;
     GameConsole("tdetect");
     s_undetected = true;
-    s_povSwitched = ScriptValue("IsPC1stPerson") != 0;
-    if (s_povSwitched) GameConsole("TapControl 13");  // to the third person
+    bool first = ScriptValue("IsPC1stPerson") != 0;
+    if (first) GameConsole("TapControl 13");  // to the third person
+    s_povSwitched = first || s_povPending;
+    HideBody(true);
+    bool out = *(void**)0x011DEA3C && PlayerWeaponOut();
+    if (out) SetWeaponOut(false);
+    s_holstered = out || s_drawPending;
+    s_povPending = s_drawPending = false;
     s_hudHidden = g_settings.photoHud;
     if (s_hudHidden) GameConsole("tm");
     s_aiStopped = g_settings.photoFreeze;
@@ -212,9 +312,10 @@ static void Enter()
     if (s_jumpOff) GameConsole("DisableControl 12");
     s_sneakOff = ScriptValue("IsControlDisabled 8") == 0;  // 8: Sneak (Ctrl flies down)
     if (s_sneakOff) GameConsole("DisableControl 8");
-    Log("photo: on at %.0f %.0f %.0f (worldspace %08lX, marker %p; people %s, HUD %s, Quicksave %s, Shift x%d%s)", s_startX, s_startY,
+    Log("photo: on%s at %.0f %.0f %.0f (worldspace %08lX, marker %p; people %s, HUD %s, Quicksave %s, Shift x%d%s%s)", resume ? " again" : "", s_startX, s_startY,
         s_startZ, s_startWorld, s_marker, s_aiStopped ? "stopped" : "moving", s_hudHidden ? "hidden" : "shown",
-        s_quicksaveOff ? "turned off" : "was off", g_settings.photoFast, s_setPosition ? "" : ", SetPosition detour missing: no Shift, Space, Ctrl");
+        s_quicksaveOff ? "turned off" : "was off", g_settings.photoFast, s_holstered ? ", weapon holstered" : "",
+        s_setPosition ? "" : ", SetPosition detour missing: no Shift, Space, Ctrl");
 }
 
 void PhotoExit(const char* why)
@@ -222,6 +323,7 @@ void PhotoExit(const char* why)
     if (!s_active) {
         if (s_backAt) Log("photo: not moved back (%s)", why);
         s_backAt = 0;
+        s_drawPending = s_povPending = false;
         s_marker = nullptr;  // gone with the game that is left
         return;
     }
@@ -232,7 +334,13 @@ void PhotoExit(const char* why)
     float px = s_startX, py = s_startY, pz = s_startZ;
     PlayerPos(&px, &py, &pz);
     SetNoclip(false);
-    if (s_povSwitched) GameConsole("TapControl 13");
+    // A load, the main menu and quitting leave this game: its 3D may be gone.
+    bool back = lstrcmpA(why, "a game is loaded") != 0 && lstrcmpA(why, "main menu") != 0 && lstrcmpA(why, "quit") != 0;
+    if (back && s_bodyHidden) HideBody(false);
+    s_bodyHidden = false;
+    s_drawPending = back && s_holstered;  // (in gameplay: see PutBackPending)
+    s_povPending = back && s_povSwitched;
+    s_holstered = false;
     if (s_invisible) GameConsole("player.SetActorAlpha 1");
     if (s_undetected) GameConsole("tdetect");
     if (s_hudHidden) GameConsole("tm");
@@ -242,9 +350,7 @@ void PhotoExit(const char* why)
     if (s_jumpOff) GameConsole("EnableControl 12");
     if (s_sneakOff) GameConsole("EnableControl 8");
     s_povSwitched = s_invisible = s_undetected = s_hudHidden = s_aiStopped = s_quicksaveOff = s_runOff = s_jumpOff = s_sneakOff = false;
-    // A load, the main menu and quitting leave this game: there is nothing to move back.
-    bool back = lstrcmpA(why, "a game is loaded") != 0 && lstrcmpA(why, "main menu") != 0 && lstrcmpA(why, "quit") != 0;
-    if (back) {
+    if (back) {  // (else there is nothing to move back)
         s_backAt = GetTickCount() + 150;
         s_backTries = 0;
     } else {
@@ -256,7 +362,7 @@ void PhotoExit(const char* why)
 void PhotoToggle()
 {
     if (s_active) PhotoExit("toggled");
-    else if (!s_backAt) Enter();
+    else Enter();
 }
 
 // Moves the player back to the marker (or, without one, to the start position), checks two seconds
@@ -283,12 +389,22 @@ static void MoveBack()
     s_backAt = GetTickCount() + 2000;
 }
 
+// Back in gameplay after photo mode: the POV back to the first person, the weapon drawn again.
+static void PutBackPending()
+{
+    if (s_povPending) GameConsole("TapControl 13");
+    if (s_drawPending) SetWeaponOut(true);
+    Log("photo: put back%s%s", s_povPending ? ", first person" : "", s_drawPending ? ", weapon drawn" : "");
+    s_povPending = s_drawPending = false;
+}
+
 // Main loop (game thread).
 void PhotoTick()
 {
     bool down = GameInFront() && !OverlayOpen() && ShortcutDown(g_settings.photoKey);
     if (down && !s_keyDown) PhotoToggle();
     s_keyDown = down;
+    if (!s_active && (s_povPending || s_drawPending) && InGameplay()) PutBackPending();
     if (s_backAt && (int)(GetTickCount() - s_backAt) >= 0 && InGameplay()) MoveBack();
     if (!s_active) return;
     if (MenuOpen()) {
@@ -299,6 +415,7 @@ void PhotoTick()
     s_speedScale = front && (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? (float)g_settings.photoFast : 1.f;
     int vertical = !front ? 0 : (GetAsyncKeyState(VK_SPACE) & 0x8000) ? 1 : (GetAsyncKeyState(VK_CONTROL) & 0x8000) ? -1 : 0;
     s_vertical = vertical;
+    HideBody(true);
     ZoomEase();
 }
 
@@ -313,5 +430,8 @@ void PhotoWriteState(FILE* f)
                "(%lu scaled), up/down %d\n",
             CellId(), s_noclip, s_marker, s_backAt ? "pending" : "no", s_backTries, s_setPosition ? "installed" : "MISSING", s_noclipCalls,
             s_speedScale, s_scaledCalls, s_vertical);
+    BYTE* node = PlayerNode();
+    fprintf(f, "photo: player 3D %p flags %08lX, hidden by photo mode %d (shadow map calls hooked %d of 3, %lu calls); weapon out %d, "
+               "holstered by photo mode %d\n", node, node ? *(DWORD*)(node + 0x30) : 0, s_bodyHidden, s_shadowSites, s_shadowCalls, *(void**)0x011DEA3C ? PlayerWeaponOut() : 0, s_holstered);
     fprintf(f, "photo: zoom %.3f (target %.3f), fov %.1f -> %.1f\n", s_zoom, s_zoomTarget, s_zoomShown, s_zoomFov);
 }

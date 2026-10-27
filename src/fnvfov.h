@@ -115,6 +115,7 @@ IDirect3DSurface9* ScreenshotFreshCopy();  // the key's screenshot taken this fr
 bool ShowcaseUserSettings(float* fov, int* lens, bool* stats);  // while a showcase series runs: the user's own values
 void ScreenshotPreUI(IDirect3DDevice9* dev);                               // scene only, before the HUD
 void ScreenshotLost();
+LONG ScreenshotNotice(char* out, int size);  // the last key's shot's "<file> was saved to <folder>", and a count raised with each
 void ScreenshotFolder(char* out);  // the screenshot folder (created if missing), trailing backslash
 
 // fov.cpp: the FOV slider (remaps the angles BSSceneGraph::SetCameraFOV is called with).
@@ -122,6 +123,7 @@ float FovRemapSetter(void* ret, void* sg, float fov);  // per call site (return 
 float FovRemapComp(float fov);                         // FovComp (0x00B54000) follows the world calls
 float FovBase();                                       // fDefaultWorldFOV
 int FlatMenuView();                                    // a terminal or casino game is open (lens off): its menu id, or 0
+bool PlayerWeaponOut();                                 // the player's weapon is drawn (true if unknown)
 float FovZoomDefault();                                // the game's own zoom target as shown (slider units)
 void FovWriteState(FILE* f);
 

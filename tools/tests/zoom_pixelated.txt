@@ -1,0 +1,47 @@
+# Zoom with zoomfov while pixelated (start with rowe.ini pixelsize=N): save "ROWE Photo Test", the
+# user's settings (fov 160, fisheye full circle, zoomfov 10). Aims (right mouse) twice, before and
+# after holding R (so one of them is with the weapon holstered, as zoomfov needs); a shot with state
+# unzoomed and fully zoomed each time. Changes fov, lens, fisheyecircle and zoomfov in rowe.ini:
+# restore it afterwards. Nothing is saved. The runner focuses the game at "focus now 1".
+log zoompx: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+waitgameplay 3600
+wait 60
+log zoompx: focus now 1
+wait 120
+waitfocus 1200
+ifmenu 1013 key esc
+waitnomenu 1013 300
+wait 60
+ifmenu 1013 key esc
+waitnomenu 1013 300
+waitgameplay 600
+set fov 160
+set lens 4
+set fisheyecircle 1
+set zoomfov 10
+wait 60
+log zoompx: aim 1 unzoomed
+shot
+keydown rmb
+wait 90
+log zoompx: aim 1 zoomed
+shot
+keyup rmb
+wait 60
+keydown r
+wait 60
+keyup r
+wait 120
+log zoompx: aim 2 unzoomed
+shot
+keydown rmb
+wait 90
+log zoompx: aim 2 zoomed
+shot
+keyup rmb
+wait 30
+log zoompx: done
+con qqq

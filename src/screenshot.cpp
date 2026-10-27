@@ -17,6 +17,7 @@
 #include <wincodec.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "fnvfov.h"
 
 static bool s_want, s_wantScene, s_wantMenu, s_wantUser;
@@ -105,6 +106,11 @@ static volatile bool s_allQueued, s_abort;
 static volatile LONG s_busy;  // a user screenshot is being taken or written
 
 static struct { char path[MAX_PATH]; UINT w, h; bool jpg; int quality; DWORD start; } s_job;
+
+// The notice the overlay shows when a key's screenshot is written ("<file> was saved to <folder>"):
+// written by the worker thread, then the count is raised; one shot is written at a time (s_busy).
+static char s_notice[2 * MAX_PATH + 64];
+static volatile LONG s_noticeCount;
 
 // GPU side (render thread).
 static IDirect3DTexture9* s_copy;
@@ -216,6 +222,15 @@ static DWORD WINAPI EncodeThread(void*)
     if (!ok) DeleteFileA(s_job.path);
     Log("screenshot: %s (%ux%u, %s) %s in %lu ms", s_job.path, s_job.w, s_job.h, s_job.jpg ? "JPEG" : "PNG",
         ok ? "saved" : (s_abort ? "abandoned" : "FAILED"), GetTickCount() - s_job.start);
+    if (!s_abort) {
+        const char* slash = strrchr(s_job.path, '\\');
+        const char* file = slash ? slash + 1 : s_job.path;
+        int dirLen = (int)(file - s_job.path);
+        if (ok) _snprintf(s_notice, sizeof(s_notice) - 1, "%s was saved to %.*s", file, dirLen, s_job.path);
+        else _snprintf(s_notice, sizeof(s_notice) - 1, "%s could not be saved to %.*s", file, dirLen, s_job.path);
+        s_notice[sizeof(s_notice) - 1] = 0;
+        InterlockedIncrement(&s_noticeCount);
+    }
     InterlockedExchange(&s_busy, 0);
     return 0;
 }
@@ -470,6 +485,13 @@ void ScreenshotPresent(IDirect3DDevice9* dev, IDirect3DSurface9* frame)
     if (!s_want) return;
     s_want = false;
     Save(dev, frame, "");
+}
+
+LONG ScreenshotNotice(char* out, int size)
+{
+    LONG count = s_noticeCount;
+    lstrcpynA(out, s_notice, size);
+    return count;
 }
 
 IDirect3DSurface9* ScreenshotFreshCopy() { return s_copyFresh ? s_copySurface : nullptr; }

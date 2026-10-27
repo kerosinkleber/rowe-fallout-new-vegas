@@ -123,7 +123,7 @@ static float ZoomTarget()
 }
 
 // The player's weapon is drawn (BaseProcess::IsWeaponOut, vtable +0x454, as the aiming code asks).
-static bool WeaponOut()
+bool PlayerWeaponOut()
 {
     BYTE* player = *(BYTE**)0x011DEA3C;
     if (!player || IsBadReadPtr(player + 0x68, 4)) return true;
@@ -141,7 +141,7 @@ static float HolsteredZoom(float fov)
     float zoom = g_settings.zoomFov;
     if (zoom <= 0) return 0;
     float base = FovBase(), target = ZoomTarget();
-    if (!(base - target > 1.f) || fov >= base || fov < target - 0.01f || WeaponOut()) return 0;
+    if (!(base - target > 1.f) || fov >= base || fov < target - 0.01f || PlayerWeaponOut()) return 0;
     float p = (base - fov) / (base - target);
     if (p > 1) p = 1;
     float from = logf(tanf(SliderRemap(base) * kPi / 360.f)), to = logf(tanf(zoom * kPi / 360.f));
@@ -189,7 +189,7 @@ float FovRemapComp(float fov)
 void FovWriteState(FILE* f)
 {
     fprintf(f, "fov: zoom without weapon: zoomfov %g, game target %.3f, weapon out %d\n", g_settings.zoomFov, ZoomTarget(),
-            WeaponOut() ? 1 : 0);
+            PlayerWeaponOut() ? 1 : 0);
     fprintf(f, "fov: lens-off menu open %d\n", FlatMenuView());
     fprintf(f, "fov: slider %g base %g, last world call frame %lu: %.3f -> %.3f\n", g_settings.fov, FovBase(), s_lastWorldFrame,
             s_lastWorldIn, s_lastWorldOut);

@@ -818,6 +818,40 @@ void OverlayLost()
     if (s_ready) ImGui_ImplDX9_InvalidateDeviceObjects();
 }
 
+// The screenshot notice ("<file> was saved to <folder>"), for a few seconds at the top of the
+// screen once the key's shot is written. The overlay draws after the shot was copied, so it is
+// never in a screenshot.
+static char s_noticeText[2 * MAX_PATH + 64];
+static LONG s_noticeSeen;
+static DWORD s_noticeUntil;
+static const DWORD kNoticeMs = 4000, kNoticeFadeMs = 600;
+
+static bool NoticeDue()
+{
+    char text[sizeof(s_noticeText)];
+    LONG count = ScreenshotNotice(text, sizeof(text));
+    if (count != s_noticeSeen) {
+        s_noticeSeen = count;
+        lstrcpynA(s_noticeText, text, sizeof(s_noticeText));
+        s_noticeUntil = GetTickCount() + kNoticeMs;
+    }
+    return s_noticeUntil && (int)(s_noticeUntil - GetTickCount()) > 0;
+}
+
+static void DrawNotice(float px, int backW)
+{
+    int left = (int)(s_noticeUntil - GetTickCount());
+    float alpha = left < (int)kNoticeFadeMs ? (left > 0 ? left / (float)kNoticeFadeMs : 0.f) : 1.f;
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
+    ImGui::SetNextWindowPos(ImVec2(backW * 0.5f, px * 1.5f), ImGuiCond_Always, ImVec2(0.5f, 0.f));
+    ImGui::Begin("##rowe screenshot notice", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs |
+                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+    ImGui::TextUnformatted(s_noticeText);
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
 void OverlayPresent(IDirect3DDevice9* dev, IDirect3DSurface9* target)
 {
     bool down = GameInFront() && (GetAsyncKeyState(g_settings.menuKey) & 0x8000) != 0;
@@ -825,7 +859,8 @@ void OverlayPresent(IDirect3DDevice9* dev, IDirect3DSurface9* target)
     s_menuKeyDown = down;
     if (s_startSkipIntros < 0) s_startSkipIntros = g_settings.skipIntros ? 1 : 0;
     if (!s_open) s_capturingKey = 0;
-    if ((!s_open && !g_settings.stats) || !target || s_failed) {
+    bool notice = NoticeDue();
+    if ((!s_open && !g_settings.stats && !notice) || !target || s_failed) {
         if (s_dirty) { SettingsSave(); s_dirty = false; }
         return;
     }
@@ -849,6 +884,7 @@ void OverlayPresent(IDirect3DDevice9* dev, IDirect3DSurface9* target)
     ImGui::NewFrame();
     if (g_settings.stats) DrawStats(px, (int)d.Width, (int)d.Height);
     if (s_open) DrawMenu((int)d.Width, (int)d.Height);
+    if (notice) DrawNotice(px, (int)d.Width);
     ImGui::EndFrame();
     ImGui::Render();
     if (s_dirty && !ImGui::IsAnyItemActive()) { SettingsSave(); s_dirty = false; }

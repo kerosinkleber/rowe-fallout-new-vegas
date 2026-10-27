@@ -1,0 +1,52 @@
+# Photo mode's hidden player casts no shadow; the screenshot notice is not in a screenshot (save
+# "ROWE Photo Test"). Evening, facing east (a long shadow ahead), the view tilted down: a shot
+# in the plain third person (the player and their shadow) and in photo mode, same view. Then a key
+# screenshot, and a second one while the first one's notice is shown (start with
+# screenshotsize=window: a quick write). The runner focuses the game at "focus now 1". Nothing is
+# saved.
+log photoshadow: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+waitgameplay 3600
+wait 60
+log photoshadow: focus now 1
+wait 120
+waitfocus 1200
+ifmenu 1013 key esc
+waitnomenu 1013 300
+wait 60
+ifmenu 1013 key esc
+waitnomenu 1013 300
+waitgameplay 600
+con set gamehour to 17.5
+con TapControl 13
+con player.SetAngle Z 90
+wait 60
+con player.SetAngle X 35
+wait 120
+log photoshadow: third person
+shot
+photo
+wait 120
+con player.SetAngle X 35
+wait 60
+log photoshadow: photo on
+shot
+wait 7
+shot
+wait 13
+shot
+photo
+wait 120
+log photoshadow: photo off
+shot
+log photoshadow: notice
+usershot
+wait 90
+usershot
+wait 2
+shotmenu
+wait 120
+log photoshadow: done
+con qqq
