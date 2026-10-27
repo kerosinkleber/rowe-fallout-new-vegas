@@ -1,9 +1,8 @@
-# Photo mode hides the player (body and shadow), holsters the weapon (drawn again at the end),
-# ignores Esc and starts again at once after it ended, also after the Pip-Boy ended it; then the
-# screenshot notice (save "ROWE Photo Test"). Draws the weapon first (holds R). The runner focuses
-# the game at "focus now 1" and presses the real Esc key (SendInput) at each "esc now": xNVSE's
-# TapKey does not pass the DirectInput layer photo mode filters. Writes two key screenshots to
-# screenshotdir. Nothing is saved.
+# Photo mode hides the player (body and shadow), holsters the weapon (drawn again at the end), is
+# paused (not ended) by the pause menu and starts again at once after it ended, also after the
+# Pip-Boy ended it; then the screenshot notice (save "ROWE Photo Test"). Draws the weapon first
+# (holds R). The runner focuses the game at "focus now 1" and presses the real Esc key (SendInput)
+# at each "esc now". Writes two key screenshots to screenshotdir. Nothing is saved.
 log photohide: boot
 waitmenu 1013 3600
 wait 60
@@ -33,6 +32,8 @@ log photohide: esc now 1
 wait 240
 log photohide: after esc
 shot
+ifmenu 1013 key esc
+wait 120
 photo
 wait 150
 log photohide: photo off

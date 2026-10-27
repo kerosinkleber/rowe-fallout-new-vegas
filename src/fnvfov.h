@@ -115,6 +115,7 @@ IDirect3DSurface9* ScreenshotFreshCopy();  // the key's screenshot taken this fr
 bool ShowcaseUserSettings(float* fov, int* lens, bool* stats);  // while a showcase series runs: the user's own values
 void ScreenshotPreUI(IDirect3DDevice9* dev);                               // scene only, before the HUD
 void ScreenshotLost();
+void OverlayNotice(const char* text);  // shows text at the top of the screen for a few seconds (not in screenshots)
 LONG ScreenshotNotice(char* out, int size);  // the last key's shot's "<file> was saved to <folder>", and a count raised with each
 void ScreenshotFolder(char* out);  // the screenshot folder (created if missing), trailing backslash
 
@@ -267,6 +268,7 @@ void PhotoTick();                     // once per MainGameLoop
 void PhotoToggle();
 void PhotoExit(const char* why);      // ends it (load, main menu, quit) and restores everything
 bool PhotoActive();
+bool PhotoFlying();                   // photo mode is on and not paused by the pause menu
 void PhotoInstall();                // at load: the movement speed detour (Shift in photo mode)
 void PhotoWheel(long delta);          // mouse wheel in photo mode (DirectInput units, 120 per notch)
 float PhotoZoomFov(float fov);        // the world FOV with photo mode's wheel zoom (fov unchanged outside it)

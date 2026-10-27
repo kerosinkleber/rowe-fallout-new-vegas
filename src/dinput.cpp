@@ -45,7 +45,6 @@ static HWND s_mouseWindow;
 static DWORD s_gameFlags;   // the cooperative level the game asked for
 static bool s_free;         // non-exclusive, movement hidden from the game
 static LONG s_stateCalls, s_dataCalls;
-static LONG s_keyStateCalls, s_keyDataCalls, s_escKept;  // keyboard reads; Esc kept from the game in photo mode
 // The game's menu cursor moves g(m) render pixels per mouse count for a move of m counts: it
 // accelerates (measured ~1 px/count for small moves and ~0.05 * m for large ones at 3840x2160),
 // and the pixels scale with the render size (~9 px/count at 11520 across). g is learned per
@@ -214,17 +213,11 @@ static HRESULT STDMETHODCALLTYPE H_GetDeviceState(void* dev, DWORD size, void* d
         if (SUCCEEDED(hr) && data) memset(data, 0, size);
         return hr;
     }
-    // Photo mode keeps Esc from the game: the pause menu would end it (the shortcut ends it).
-    if (dev == s_keyboard) InterlockedIncrement(&s_keyStateCalls);
-    if (dev == s_keyboard && PhotoActive() && SUCCEEDED(hr) && data && size > DIK_ESCAPE && (((BYTE*)data)[DIK_ESCAPE] & 0x80)) {
-        ((BYTE*)data)[DIK_ESCAPE] = 0;
-        InterlockedIncrement(&s_escKept);
-    }
     if (dev == s_mouse) {
         InterlockedIncrement(&s_stateCalls);
         // Photo mode zooms with the wheel; the game does not get it (in third person it would move
         // the camera and switch to the first person).
-        if (PhotoActive() && SUCCEEDED(hr) && data && size >= 3 * sizeof(LONG)) {
+        if (PhotoFlying() && SUCCEEDED(hr) && data && size >= 3 * sizeof(LONG)) {
             if (((LONG*)data)[2]) PhotoWheel(((LONG*)data)[2]);
             ((LONG*)data)[2] = 0;
         }
@@ -276,23 +269,9 @@ static HRESULT STDMETHODCALLTYPE H_GetDeviceData(void* dev, DWORD cb, DIDEVICEOB
         if (SUCCEEDED(hr) && inout && !(flags & DIGDD_PEEK)) *inout = 0;
         return hr;
     }
-    if (dev == s_keyboard) InterlockedIncrement(&s_keyDataCalls);
-    if (dev == s_keyboard && PhotoActive() && SUCCEEDED(hr) && data && inout && cb >= sizeof(DWORD) * 2) {  // no Esc (as above)
-        DWORD n = *inout, kept = 0;
-        for (DWORD i = 0; i < n; ++i) {
-            DIDEVICEOBJECTDATA* e = (DIDEVICEOBJECTDATA*)((BYTE*)data + i * cb);
-            if (e->dwOfs == DIK_ESCAPE) {
-                InterlockedIncrement(&s_escKept);
-                continue;
-            }
-            if (kept != i) memcpy((BYTE*)data + kept * cb, e, cb);
-            ++kept;
-        }
-        *inout = kept;
-    }
     if (dev == s_mouse) {
         InterlockedIncrement(&s_dataCalls);
-        bool photo = PhotoActive();
+        bool photo = PhotoFlying();
         if ((s_free || photo) && SUCCEEDED(hr) && data && inout && cb >= sizeof(DWORD) * 2) {
             DWORD n = *inout, kept = 0;
             for (DWORD i = 0; i < n; ++i) {
@@ -396,6 +375,4 @@ void DinputWriteState(FILE* f)
     fprintf(f, "dinput: mouse %p, game cooperative level %08lx, free %d, GetDeviceState %ld, GetDeviceData %ld, px/count %.2f %.2f %.2f "
                "damp %.2f, target %.1f %.1f\n",
             s_mouse, s_gameFlags, s_free, s_stateCalls, s_dataCalls, s_gain[0], s_gain[1], s_gain[2], s_damp, s_targetX, s_targetY);
-    fprintf(f, "dinput: keyboard %p, GetDeviceState %ld, GetDeviceData %ld, Esc kept from the game (photo mode) %ld\n", s_keyboard,
-            s_keyStateCalls, s_keyDataCalls, s_escKept);
 }

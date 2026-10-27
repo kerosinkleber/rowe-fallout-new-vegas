@@ -818,13 +818,19 @@ void OverlayLost()
     if (s_ready) ImGui_ImplDX9_InvalidateDeviceObjects();
 }
 
-// The screenshot notice ("<file> was saved to <folder>"), for a few seconds at the top of the
-// screen once the key's shot is written. The overlay draws after the shot was copied, so it is
-// never in a screenshot.
+// The notice at the top of the screen for a few seconds: "<file> was saved to <folder>" once the
+// key's shot is written, or another mod message (OverlayNotice). The overlay draws after the shot
+// was copied, so it is never in a screenshot.
 static char s_noticeText[2 * MAX_PATH + 64];
 static LONG s_noticeSeen;
 static DWORD s_noticeUntil;
 static const DWORD kNoticeMs = 4000, kNoticeFadeMs = 600;
+
+void OverlayNotice(const char* text)  // (game thread, which presents too)
+{
+    lstrcpynA(s_noticeText, text, sizeof(s_noticeText));
+    s_noticeUntil = GetTickCount() + kNoticeMs;
+}
 
 static bool NoticeDue()
 {

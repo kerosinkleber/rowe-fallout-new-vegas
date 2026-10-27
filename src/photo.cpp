@@ -5,18 +5,19 @@
 // the third person (a tap of the POV control if they were in the first; the invisible body leaves
 // a free view), with the HUD hidden (ToggleMenus) if photohud=1 and people and creatures stopped
 // (ToggleAI) if photofreeze=1. Because the player really moves, the game crosses cells and loads
-// the world as when walking (a free camera, "tfc", leaves the player behind and nothing loads where it flies,
-// and moving the player after it with SetPos leaves their cell behind and crashed the game).
+// the world as when walking (a free camera, "tfc", leaves the player behind and nothing loads where
+// it flies, and moving the player after it with SetPos leaves their cell behind and crashed the game).
 // Holding Shift flies photofast times faster, Space flies up and Ctrl down: see Hook_SetPosition.
 // The game's Run, Jump and Sneak controls are off while photo mode is on (Shift would also switch
 // to walking, Space jump, Ctrl sneak). The mouse wheel zooms (dinput.cpp hands it over and keeps
 // it from the game, fov.cpp applies PhotoZoomFov).
 // The shortcut again ends it and puts the player back where photo mode started: there it leaves
 // a marker (PlaceAtMe XMarkerHeading), and the player is moved to it (MoveTo) a moment after the
-// collision is back on (a move while flying is lost). Opening a menu (the pause menu with its
-// Save, the Pip-Boy), loading a game, the main menu and quitting end it as well, and Quicksave is
-// off while it is on: a save would keep the invisible player. Esc does not reach the game while it
-// is on (dinput.cpp), so it does not open the pause menu and end photo mode.
+// collision is back on (a move while flying is lost). The pause menu (Esc) pauses it: it carries on
+// where it was when the menu closes (the HUD shown while the menu is open, so the menu shows).
+// Opening another menu (the Pip-Boy), loading a game, the main menu and quitting end it. No game
+// is saved while it is on (Hook_SaveGame: the pause menu's Save, Quicksave, autosaves, the console):
+// a save would keep the invisible player in mid-air.
 // Everything is put back as it was: each toggle is toggled back only if photo mode toggled it
 // (and the state is tracked, so an early end never toggles one twice), Quicksave and Run are
 // (and Jump and Sneak) enabled only if they were, the speed scale goes back to 1, the marker is
@@ -48,8 +49,27 @@ static DWORD s_startWorld;                  // their worldspace (0: an interior)
 static void* s_marker;                      // the marker left there
 static DWORD s_backAt;                      // when the player is to be moved back (0: not pending)
 static int s_backTries;
+static bool s_paused;      // the pause menu is open over photo mode
+static bool s_hudRehide;   // the HUD photo mode hid is shown while paused, hidden again after
+static DWORD s_menuSince;  // a menu opened over photo mode then, not yet told whether the pause menu
+static DWORD s_savesRefused;
 
 bool PhotoActive() { return s_active; }
+bool PhotoFlying() { return s_active && !s_paused; }
+
+// No save while photo mode is on: the pause menu's Save, Quicksave, autosaves and the console's
+// SaveGame all call BGSSaveLoadGame::SaveGame (0x8503B0, thiscall (name, -1, flag), ret 0xC).
+typedef bool(__fastcall* SaveGameFn)(void* self, void* edx, const char* name, int slot, int flag);
+static SaveGameFn s_saveGame;
+
+static bool __fastcall Hook_SaveGame(void* self, void* edx, const char* name, int slot, int flag)
+{
+    if (!s_active) return s_saveGame(self, edx, name, slot, flag);
+    ++s_savesRefused;
+    Log("photo: save \"%s\" refused (photo mode is on)", name && !IsBadReadPtr(name, 1) ? name : "");
+    OverlayNotice("Saving is off in photo mode");
+    return false;
+}
 
 // Speed, up and down: with collision off the player update puts the player each frame with
 // PlayerCharacter::SetPosition (0x931620, thiscall, the position by pointer) from its noclip block
@@ -168,6 +188,9 @@ void PhotoInstall()
     static const BYTE kStart[] = {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x08};  // push ebp; mov ebp, esp; sub esp, 8
     s_setPosition = (SetPositionFn)InstallDetour(0x00931620, kStart, sizeof(kStart), (void*)Hook_SetPosition,
                                                  "PlayerCharacter::SetPosition (photo mode speed, up / down)");
+    static const BYTE kSaveStart[] = {0x55, 0x8B, 0xEC, 0x81, 0xEC, 0x44, 0x03, 0x00, 0x00};  // push ebp; mov ebp, esp; sub esp, 344h
+    s_saveGame = (SaveGameFn)InstallDetour(0x008503B0, kSaveStart, sizeof(kSaveStart), (void*)Hook_SaveGame,
+                                           "BGSSaveLoadGame::SaveGame (no save in photo mode)");
     static const DWORD kShadowSites[] = {0x00870851, 0x00870A74, 0x00870C3C};
     for (DWORD va : kShadowSites) {
         BYTE* site = (BYTE*)va;
@@ -335,6 +358,8 @@ void PhotoExit(const char* why)
         return;
     }
     s_active = false;
+    s_paused = s_hudRehide = false;  // (the HUD is shown while paused: s_hudHidden is clear then)
+    s_menuSince = 0;
     s_speedScale = 1.f;
     s_vertical = 0;
     s_zoom = s_zoomTarget = 1.f;
@@ -424,9 +449,44 @@ void PhotoTick()
     }
     if (s_backAt && (int)(GetTickCount() - s_backAt) >= 0 && InGameplay()) MoveBack();
     if (!s_active) return;
-    if (MenuOpen()) {
-        PhotoExit("a menu opened");
+    // The pause menu pauses photo mode (any other menu ends it). Photo mode's hidden HUD would
+    // hide the pause menu too: it is shown while the menu is open. The game is in menu mode a few
+    // frames before the pause menu shows as visible, so a menu is only told apart after up to
+    // kMenuWaitMs (frozen meanwhile).
+    static const DWORD kMenuWaitMs = 500;
+    bool menu = MenuOpen();
+    bool paused = menu && ((BYTE*)0x011F308F)[1013];  // the visible-menu table, 1013 = StartMenu
+    if (menu && !paused) {
+        if (!s_menuSince) s_menuSince = GetTickCount();
+        if (GetTickCount() - s_menuSince >= kMenuWaitMs) {
+            s_menuSince = 0;
+            PhotoExit("a menu opened");
+            return;
+        }
+        s_speedScale = 1.f;
+        s_vertical = 0;
+        HideBody(true);
         return;
+    }
+    s_menuSince = 0;
+    if (paused != s_paused) {
+        s_paused = paused;
+        if (paused && s_hudHidden) {
+            GameConsole("tm");
+            s_hudHidden = false;
+            s_hudRehide = true;
+        } else if (!paused && s_hudRehide) {
+            GameConsole("tm");
+            s_hudHidden = true;
+            s_hudRehide = false;
+        }
+        Log("photo: %s", paused ? "paused (pause menu)" : "resumed");
+    }
+    if (paused) {
+        s_speedScale = 1.f;
+        s_vertical = 0;
+        HideBody(true);
+        return;  // (the weapon is not holstered in a menu: see s_drawPending)
     }
     if (Due(s_holsterAt)) {
         s_holsterAt = 0;
@@ -459,4 +519,6 @@ void PhotoWriteState(FILE* f)
     fprintf(f, "photo: player 3D %p flags %08lX, hidden by photo mode %d (shadow map calls hooked %d of 3, %lu calls); weapon out %d, "
                "holstered by photo mode %d\n", node, node ? *(DWORD*)(node + 0x30) : 0, s_bodyHidden, s_shadowSites, s_shadowCalls, *(void**)0x011DEA3C ? PlayerWeaponOut() : 0, s_holstered);
     fprintf(f, "photo: zoom %.3f (target %.3f), fov %.1f -> %.1f\n", s_zoom, s_zoomTarget, s_zoomShown, s_zoomFov);
+    fprintf(f, "photo: paused %d (HUD shown for the menu %d), saves refused %lu (SaveGame detour %s)\n", s_paused, s_hudRehide, s_savesRefused,
+            s_saveGame ? "installed" : "MISSING");
 }

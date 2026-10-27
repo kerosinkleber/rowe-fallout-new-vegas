@@ -1,0 +1,55 @@
+# Photo mode and the pause menu (save "ROWE Photo Test"): Esc opens the pause menu over photo mode,
+# which pauses (the menu shown although photo mode hid the HUD); a save is refused there with a
+# notice; Esc again carries on where it was (not moved back), the wheel zooms again. After photo
+# mode a save works (writes "ROWE save hook test": delete it after). The runner focuses the game at
+# "focus now 1" and presses the real Esc key at each "esc now".
+log photopause: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+waitgameplay 3600
+wait 60
+log photopause: focus now 1
+wait 120
+waitfocus 1200
+ifmenu 1013 key esc
+waitnomenu 1013 300
+wait 60
+ifmenu 1013 key esc
+waitnomenu 1013 300
+waitgameplay 600
+keydown r
+wait 60
+keyup r
+wait 120
+photo
+wait 60
+keydown w
+wait 90
+keyup w
+wait 30
+log photopause: flying
+shot
+log photopause: esc now 1
+wait 150
+log photopause: pause menu
+shot
+con save "ROWE photo save refused"
+wait 20
+shotmenu
+log photopause: esc now 2
+wait 150
+log photopause: resumed
+shot
+wheel 600
+wait 60
+log photopause: zoomed
+shot
+photo
+wait 240
+log photopause: photo off
+shot
+con save "ROWE save hook test"
+wait 120
+log photopause: done
+con qqq
