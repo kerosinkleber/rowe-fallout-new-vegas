@@ -2,8 +2,8 @@
 // collision off ("tcl": the movement keys move them where the camera looks, up and down too),
 // invisible (SetActorAlpha 0, and their 3D culled, which also hides the shadow: see HideBody),
 // with the weapon holstered (drawn again at the end), undetectable (ToggleDetection), seen from
-// the third person (a tap of the POV control if they were in the first; the invisible body leaves
-// a free view), with the HUD hidden (ToggleMenus) if photohud=1 and people and creatures stopped
+// the first person (a tap of the POV control if they were in the third: the camera turns around
+// the eye; the first-person arms are culled too), with the HUD hidden (ToggleMenus) if photohud=1 and people and creatures stopped
 // (ToggleAI) if photofreeze=1. Because the player really moves, the game crosses cells and loads
 // the world as when walking (a free camera, "tfc", leaves the player behind and nothing loads where
 // it flies, and moving the player after it with SetPos leaves their cell behind and crashed the game).
@@ -153,16 +153,17 @@ static void ZoomEase()
     if (fabsf(s_zoom - s_zoomTarget) < 1e-4f) s_zoom = s_zoomTarget;
 }
 
-// The hidden body, again right before the shadow maps are drawn (Render's three calls of
-// RenderShadowMaps 0x871290): in the third person the game clears the culled bit every frame, and
-// set only in the main loop or at the start of Render it was clear again when the shadows were drawn.
+// The hidden player, again right before the shadow maps and the first-person model are drawn
+// (Render's three calls each of RenderShadowMaps 0x871290 and RenderFirstPerson 0x875110): the game
+// clears the culled bits every frame, and set only in the main loop or at the start of Render a bit
+// was clear again when the shadows were drawn.
 static void HideBody(bool hide);
-static DWORD s_shadowCalls;
-static int s_shadowSites;
+static DWORD s_drawCalls;
+static int s_drawSites;
 
-static void BeforeShadows()
+static void BeforeDraw()
 {
-    ++s_shadowCalls;
+    ++s_drawCalls;
     if (s_active) HideBody(true);
 }
 
@@ -191,15 +192,22 @@ void PhotoInstall()
     static const BYTE kSaveStart[] = {0x55, 0x8B, 0xEC, 0x81, 0xEC, 0x44, 0x03, 0x00, 0x00};  // push ebp; mov ebp, esp; sub esp, 344h
     s_saveGame = (SaveGameFn)InstallDetour(0x008503B0, kSaveStart, sizeof(kSaveStart), (void*)Hook_SaveGame,
                                            "BGSSaveLoadGame::SaveGame (no save in photo mode)");
-    static const DWORD kShadowSites[] = {0x00870851, 0x00870A74, 0x00870C3C};
-    for (DWORD va : kShadowSites) {
-        BYTE* site = (BYTE*)va;
+    static const struct { DWORD va, target; const char* name; } kDrawSites[] = {
+        {0x00870851, 0x00871290, "RenderShadowMaps call (photo mode: no player shadow)"},
+        {0x00870A74, 0x00871290, "RenderShadowMaps call (photo mode: no player shadow)"},
+        {0x00870C3C, 0x00871290, "RenderShadowMaps call (photo mode: no player shadow)"},
+        {0x0087093D, 0x00875110, "RenderFirstPerson call (photo mode: no arms)"},
+        {0x00870B21, 0x00875110, "RenderFirstPerson call (photo mode: no arms)"},
+        {0x00870F74, 0x00875110, "RenderFirstPerson call (photo mode: no arms)"},
+    };
+    for (const auto& s : kDrawSites) {
+        BYTE* site = (BYTE*)s.va;
         if (site[0] != 0xE8) {
-            PatchCall(va, 0x00871290, nullptr, "RenderShadowMaps call (photo mode: no player shadow)");  // logs the skip
+            PatchCall(s.va, s.target, nullptr, s.name);  // logs the skip
             continue;
         }
-        void* thunk = MakeThunk((void*)BeforeShadows, (void*)(va + 5 + *(int*)(site + 1)));
-        if (thunk && PatchCall(va, 0x00871290, thunk, "RenderShadowMaps call (photo mode: no player shadow)")) ++s_shadowSites;
+        void* thunk = MakeThunk((void*)BeforeDraw, (void*)(s.va + 5 + *(int*)(site + 1)));
+        if (thunk && PatchCall(s.va, s.target, thunk, s.name)) ++s_drawSites;
     }
 }
 
@@ -231,34 +239,49 @@ static DWORD CellId()
     return cell && !IsBadReadPtr(cell + 0x0C, 4) ? *(DWORD*)(cell + 0x0C) : 0;
 }
 
-// The player's third-person 3D (TESObjectREFR::renderState +0x64, its NiNode +0x14), or null.
-static BYTE* PlayerNode()
+// The player's 3D: the third-person body (TESObjectREFR::renderState +0x64, its NiNode +0x14) or
+// the first-person arms and weapon (PlayerCharacter +0x694), or null.
+static BYTE* PlayerNode(bool firstPerson)
 {
     BYTE* pl = *(BYTE**)0x011DEA3C;
-    BYTE* rs = pl && !IsBadReadPtr(pl + 0x64, 4) ? *(BYTE**)(pl + 0x64) : nullptr;
-    BYTE* node = rs && !IsBadReadPtr(rs + 0x14, 4) ? *(BYTE**)(rs + 0x14) : nullptr;
+    BYTE* node = nullptr;
+    if (firstPerson) {
+        node = pl && !IsBadReadPtr(pl + 0x694, 4) ? *(BYTE**)(pl + 0x694) : nullptr;
+    } else {
+        BYTE* rs = pl && !IsBadReadPtr(pl + 0x64, 4) ? *(BYTE**)(pl + 0x64) : nullptr;
+        node = rs && !IsBadReadPtr(rs + 0x14, 4) ? *(BYTE**)(rs + 0x14) : nullptr;
+    }
     return node && !IsBadReadPtr(node, 0x34) ? node : nullptr;
 }
 
-// Culls the player's 3D (NiAVObject flags +0x30, bit 0 "app culled") or lets it be drawn again.
+// Culls the player's 3D, both models (NiAVObject flags +0x30, bit 0 "app culled"), or puts each
+// bit back as it was before (in the first person the game keeps the body culled itself).
 // SetActorAlpha 0 fades the body but not its shadow (nor a drawn weapon's); a culled node draws
-// nothing, those included. Set again every frame while photo mode is on (a POV switch or a new 3D
-// may clear it), cleared at the end before the POV goes back.
+// nothing, those included. Set again every frame while photo mode is on, and right before the
+// shadow maps and the first-person pass: the game clears the bits each frame.
+static BYTE* s_hidNode[2];  // [0] body, [1] first-person model, as culled
+static DWORD s_hidWas[2];   // their bit 0 before
+
 static void HideBody(bool hide)
 {
-    BYTE* node = PlayerNode();
-    if (!node) return;
-    DWORD* flags = (DWORD*)(node + 0x30);
-    if (hide && !(*flags & 1)) {
-        if (!s_bodyHidden) {
-            const char* name = !IsBadReadPtr(node + 8, 4) && *(char**)(node + 8) && !IsBadReadPtr(*(char**)(node + 8), 1)
-                                   ? *(char**)(node + 8) : "?";
-            Log("photo: player 3D %p '%.40s' flags %08lX culled", node, name, *flags);
+    for (int i = 0; i < 2; ++i) {
+        BYTE* node = PlayerNode(i == 1);
+        if (!node) continue;
+        DWORD* flags = (DWORD*)(node + 0x30);
+        if (hide) {
+            if (s_hidNode[i] != node) {
+                s_hidNode[i] = node;
+                s_hidWas[i] = *flags & 1;
+                const char* name = !IsBadReadPtr(node + 8, 4) && *(char**)(node + 8) && !IsBadReadPtr(*(char**)(node + 8), 1)
+                                       ? *(char**)(node + 8) : "?";
+                Log("photo: player %s %p '%.40s' flags %08lX culled", i ? "first-person model" : "body", node, name, *flags);
+            }
+            *flags |= 1;
+        } else if (s_hidNode[i] == node) {
+            *flags = (*flags & ~1u) | s_hidWas[i];
         }
-        *flags |= 1;
-    } else if (!hide && (*flags & 1)) {
-        *flags &= ~1u;
     }
+    if (!hide) s_hidNode[0] = s_hidNode[1] = nullptr;
     s_bodyHidden = hide;
 }
 
@@ -320,9 +343,9 @@ static void Enter()
     s_invisible = true;
     GameConsole("tdetect");
     s_undetected = true;
-    bool first = ScriptValue("IsPC1stPerson") != 0;
-    if (first) GameConsole("TapControl 13");  // to the third person
-    s_povSwitched = first || s_povPending;
+    bool third = ScriptValue("IsPC1stPerson") == 0;
+    if (third) GameConsole("TapControl 13");  // to the first person
+    s_povSwitched = third || s_povPending;
     HideBody(true);
     bool out = *(void**)0x011DEA3C && PlayerWeaponOut();
     s_holsterAt = out ? GetTickCount() + kWeaponDelayMs : 0;  // (PhotoTick)
@@ -422,13 +445,13 @@ static void MoveBack()
     s_backAt = GetTickCount() + 2000;
 }
 
-// Back in gameplay after photo mode: the POV back to the first person; the weapon is drawn again
+// Back in gameplay after photo mode: the POV back to the third person; the weapon is drawn again
 // a moment later (PhotoTick).
 static void PutBackPending()
 {
     if (s_povPending) GameConsole("TapControl 13");
     if (s_drawPending) s_drawAt = GetTickCount() + kWeaponDelayMs;
-    Log("photo: put back%s%s", s_povPending ? ", first person" : "", s_drawPending ? ", weapon to draw" : "");
+    Log("photo: put back%s%s", s_povPending ? ", third person" : "", s_drawPending ? ", weapon to draw" : "");
     s_povPending = s_drawPending = false;
 }
 
@@ -515,9 +538,11 @@ void PhotoWriteState(FILE* f)
                "(%lu scaled), up/down %d\n",
             CellId(), s_noclip, s_marker, s_backAt ? "pending" : "no", s_backTries, s_setPosition ? "installed" : "MISSING", s_noclipCalls,
             s_speedScale, s_scaledCalls, s_vertical);
-    BYTE* node = PlayerNode();
-    fprintf(f, "photo: player 3D %p flags %08lX, hidden by photo mode %d (shadow map calls hooked %d of 3, %lu calls); weapon out %d, "
-               "holstered by photo mode %d\n", node, node ? *(DWORD*)(node + 0x30) : 0, s_bodyHidden, s_shadowSites, s_shadowCalls, *(void**)0x011DEA3C ? PlayerWeaponOut() : 0, s_holstered);
+    BYTE *body = PlayerNode(false), *arms = PlayerNode(true);
+    fprintf(f, "photo: player body %p flags %08lX, first-person model %p flags %08lX, hidden by photo mode %d (draw calls hooked %d of 6, "
+               "%lu calls); 1st person %d; weapon out %d, holstered by photo mode %d\n",
+            body, body ? *(DWORD*)(body + 0x30) : 0, arms, arms ? *(DWORD*)(arms + 0x30) : 0, s_bodyHidden, s_drawSites, s_drawCalls,
+            *(BYTE**)0x011DEA3C ? !*(*(BYTE**)0x011DEA3C + 0x64A) : 0, *(void**)0x011DEA3C ? PlayerWeaponOut() : 0, s_holstered);
     fprintf(f, "photo: zoom %.3f (target %.3f), fov %.1f -> %.1f\n", s_zoom, s_zoomTarget, s_zoomShown, s_zoomFov);
     fprintf(f, "photo: paused %d (HUD shown for the menu %d), saves refused %lu (SaveGame detour %s)\n", s_paused, s_hudRehide, s_savesRefused,
             s_saveGame ? "installed" : "MISSING");

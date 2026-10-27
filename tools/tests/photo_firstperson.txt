@@ -1,0 +1,62 @@
+# Photo mode in the first person (save "ROWE Photo Test"): started from the first person with the
+# weapon drawn (no arms or weapon in three shots, frames apart; no shadow at 17:30 facing east,
+# tilted down), then from the third person (switched to the first, back to the third after, the
+# body shown again). Then a key screenshot and its notice (start with screenshotsize=window). The
+# runner focuses the game at "focus now 1". Nothing is saved.
+log photofirst: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+waitgameplay 3600
+wait 60
+log photofirst: focus now 1
+wait 120
+waitfocus 1200
+ifmenu 1013 key esc
+waitnomenu 1013 300
+wait 60
+ifmenu 1013 key esc
+waitnomenu 1013 300
+waitgameplay 600
+con set gamehour to 17.5
+con player.SetAngle Z 90
+keydown r
+wait 60
+keyup r
+wait 120
+log photofirst: first person, weapon drawn
+shot
+photo
+wait 120
+con player.SetAngle X 35
+wait 30
+log photofirst: photo on
+shot
+wait 7
+shot
+wait 13
+shot
+photo
+wait 240
+log photofirst: photo off
+shot
+con TapControl 13
+wait 90
+log photofirst: third person
+shot
+photo
+wait 120
+log photofirst: photo on from third person
+shot
+photo
+wait 240
+log photofirst: photo off, back in third person
+shot
+con TapControl 13
+wait 90
+log photofirst: notice
+usershot
+wait 40
+shotmenu
+log photofirst: done
+con qqq

@@ -848,14 +848,20 @@ static void DrawNotice(float px, int backW)
 {
     int left = (int)(s_noticeUntil - GetTickCount());
     float alpha = left < (int)kNoticeFadeMs ? (left > 0 ? left / (float)kNoticeFadeMs : 0.f) : 1.f;
+    float textPx = floorf(px * 0.7f + 0.5f), c[3];  // smaller than the menu's text
+    MenuColor(c);
+    HudApplyStyle(textPx, c);
+    ImGui::PushFont(nullptr, textPx);
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
-    ImGui::SetNextWindowPos(ImVec2(backW * 0.5f, px * 1.5f), ImGuiCond_Always, ImVec2(0.5f, 0.f));
+    ImGui::SetNextWindowPos(ImVec2(backW * 0.5f, px), ImGuiCond_Always, ImVec2(0.5f, 0.f));
     ImGui::Begin("##rowe screenshot notice", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs |
                      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
     ImGui::TextUnformatted(s_noticeText);
     ImGui::End();
     ImGui::PopStyleVar();
+    ImGui::PopFont();
+    HudApplyStyle(px, c);
 }
 
 void OverlayPresent(IDirect3DDevice9* dev, IDirect3DSurface9* target)
