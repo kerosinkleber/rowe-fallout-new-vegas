@@ -1,3 +1,5 @@
+![ROWE for Fallout New Vegas](docs/titlecard.jpg)
+
 # ROWE for Fallout New Vegas
 
 *Reinhold Oberstürcks wunderbare Erweiterungen* (formerly fnvfov)
