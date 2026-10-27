@@ -35,6 +35,11 @@ static bool s_holstered;   // photo mode holstered the player's weapon
 // holsters the weapon itself; drawing it there crashed the game when the Pip-Boy closed), and the
 // POV control does nothing in a menu.
 static bool s_drawPending, s_povPending;
+// The weapon is holstered and drawn again a moment after the POV switch, never in the same frame:
+// both rebuild the player's animations (the MO2 game crashed in a background animation update
+// 24 s after a photo mode whose end switched the POV and drew the weapon in one frame).
+static const DWORD kWeaponDelayMs = 400;
+static DWORD s_holsterAt, s_drawAt;  // when to holster (photo mode on) / draw again (off); 0: not pending
 static bool s_noclip, s_hudHidden, s_aiStopped, s_povSwitched, s_undetected, s_invisible, s_quicksaveOff, s_runOff, s_jumpOff,
     s_sneakOff;
 static float s_startX, s_startY, s_startZ;  // where the player was when photo mode started
@@ -297,9 +302,10 @@ static void Enter()
     s_povSwitched = first || s_povPending;
     HideBody(true);
     bool out = *(void**)0x011DEA3C && PlayerWeaponOut();
-    if (out) SetWeaponOut(false);
-    s_holstered = out || s_drawPending;
+    s_holsterAt = out ? GetTickCount() + kWeaponDelayMs : 0;  // (PhotoTick)
+    s_holstered = s_drawPending || s_drawAt;  // still holstered from the last time
     s_povPending = s_drawPending = false;
+    s_drawAt = 0;
     s_hudHidden = g_settings.photoHud;
     if (s_hudHidden) GameConsole("tm");
     s_aiStopped = g_settings.photoFreeze;
@@ -314,7 +320,7 @@ static void Enter()
     if (s_sneakOff) GameConsole("DisableControl 8");
     Log("photo: on%s at %.0f %.0f %.0f (worldspace %08lX, marker %p; people %s, HUD %s, Quicksave %s, Shift x%d%s%s)", resume ? " again" : "", s_startX, s_startY,
         s_startZ, s_startWorld, s_marker, s_aiStopped ? "stopped" : "moving", s_hudHidden ? "hidden" : "shown",
-        s_quicksaveOff ? "turned off" : "was off", g_settings.photoFast, s_holstered ? ", weapon holstered" : "",
+        s_quicksaveOff ? "turned off" : "was off", g_settings.photoFast, s_holsterAt ? ", weapon to holster" : s_holstered ? ", weapon holstered" : "",
         s_setPosition ? "" : ", SetPosition detour missing: no Shift, Space, Ctrl");
 }
 
@@ -324,6 +330,7 @@ void PhotoExit(const char* why)
         if (s_backAt) Log("photo: not moved back (%s)", why);
         s_backAt = 0;
         s_drawPending = s_povPending = false;
+        s_drawAt = 0;
         s_marker = nullptr;  // gone with the game that is left
         return;
     }
@@ -341,6 +348,7 @@ void PhotoExit(const char* why)
     s_drawPending = back && s_holstered;  // (in gameplay: see PutBackPending)
     s_povPending = back && s_povSwitched;
     s_holstered = false;
+    s_holsterAt = 0;  // not holstered yet: nothing to draw again
     if (s_invisible) GameConsole("player.SetActorAlpha 1");
     if (s_undetected) GameConsole("tdetect");
     if (s_hudHidden) GameConsole("tm");
@@ -389,14 +397,17 @@ static void MoveBack()
     s_backAt = GetTickCount() + 2000;
 }
 
-// Back in gameplay after photo mode: the POV back to the first person, the weapon drawn again.
+// Back in gameplay after photo mode: the POV back to the first person; the weapon is drawn again
+// a moment later (PhotoTick).
 static void PutBackPending()
 {
     if (s_povPending) GameConsole("TapControl 13");
-    if (s_drawPending) SetWeaponOut(true);
-    Log("photo: put back%s%s", s_povPending ? ", first person" : "", s_drawPending ? ", weapon drawn" : "");
+    if (s_drawPending) s_drawAt = GetTickCount() + kWeaponDelayMs;
+    Log("photo: put back%s%s", s_povPending ? ", first person" : "", s_drawPending ? ", weapon to draw" : "");
     s_povPending = s_drawPending = false;
 }
+
+static bool Due(DWORD at) { return at && (int)(GetTickCount() - at) >= 0; }
 
 // Main loop (game thread).
 void PhotoTick()
@@ -405,11 +416,25 @@ void PhotoTick()
     if (down && !s_keyDown) PhotoToggle();
     s_keyDown = down;
     if (!s_active && (s_povPending || s_drawPending) && InGameplay()) PutBackPending();
+    if (!s_active && Due(s_drawAt) && InGameplay()) {
+        s_drawAt = 0;
+        bool out = PlayerWeaponOut();
+        if (!out) SetWeaponOut(true);
+        Log("photo: weapon %s", out ? "already drawn" : "drawn again");
+    }
     if (s_backAt && (int)(GetTickCount() - s_backAt) >= 0 && InGameplay()) MoveBack();
     if (!s_active) return;
     if (MenuOpen()) {
         PhotoExit("a menu opened");
         return;
+    }
+    if (Due(s_holsterAt)) {
+        s_holsterAt = 0;
+        if (PlayerWeaponOut()) {
+            SetWeaponOut(false);
+            s_holstered = true;
+            Log("photo: weapon holstered");
+        }
     }
     bool front = GameInFront();
     s_speedScale = front && (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? (float)g_settings.photoFast : 1.f;

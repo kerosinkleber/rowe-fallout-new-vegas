@@ -1,0 +1,88 @@
+# Photo mode on / off with the weapon drawn, many times, walking and turning in between (save
+# "ROWE Photo Test"): looks for a crash after photo mode holsters and draws the weapon around its
+# POV switches. The runner focuses the game at "focus now 1". Nothing is saved.
+log photostress: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+waitgameplay 3600
+wait 60
+log photostress: focus now 1
+wait 120
+waitfocus 1200
+ifmenu 1013 key esc
+waitnomenu 1013 300
+wait 60
+ifmenu 1013 key esc
+waitnomenu 1013 300
+waitgameplay 600
+keydown r
+wait 60
+keyup r
+wait 120
+log photostress: round 1
+photo
+wait 60
+photo
+wait 30
+keydown w
+wait 120
+keyup w
+log photostress: round 2
+photo
+wait 20
+photo
+wait 10
+keydown s
+wait 120
+keyup s
+log photostress: round 3
+photo
+wait 5
+photo
+wait 5
+photo
+wait 60
+photo
+keydown w
+wait 200
+keyup w
+log photostress: round 4
+key r
+wait 30
+photo
+wait 90
+photo
+wait 2
+keydown a
+wait 120
+keyup a
+log photostress: round 5
+photo
+wait 40
+photo
+wait 40
+photo
+wait 40
+photo
+keydown w
+wait 300
+keyup w
+log photostress: round 6
+photo
+wait 60
+photo
+wait 1
+key r
+keydown d
+wait 200
+keyup d
+log photostress: walk
+keydown w
+wait 600
+keyup w
+keydown s
+wait 600
+keyup s
+log photostress: done
+con qqq
