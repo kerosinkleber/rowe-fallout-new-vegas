@@ -1,0 +1,47 @@
+# 64x (start with any factor, e.g. 4 or 64): a shot at the start, live to 64x with shots of
+# gameplay, the Pip-Boy and the pause menu, live to 16x and back to 64x, then 4x. rowe.log has the
+# memory 60 frames after each change. Saves nothing.
+log ss64: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+log ss64: start
+shot
+log ss64: to 64x
+ssapply 64
+wait 300
+shot
+log ss64: pipboy at 64x
+con TapControl 14
+wait 300
+shot
+con TapControl 14
+wait 300
+gameplay 900
+log ss64: pause menu at 64x
+key esc
+wait 300
+shot
+key esc
+wait 200
+gameplay 900
+log ss64: 16x and back to 64x
+ssapply 16
+wait 200
+ssapply 64
+wait 300
+shot
+log ss64: 4x
+ssapply 4
+wait 200
+shot
+log ss64: pipboy at 4x
+con TapControl 14
+wait 300
+shot
+con TapControl 14
+wait 300
+log ss64: done
+con qqq

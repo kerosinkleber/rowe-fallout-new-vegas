@@ -366,10 +366,16 @@ static bool ScreenFraction(int w, int h, int fromW, int fromH, int* outW, int* o
 typedef void*(__cdecl* CreateRenderTextureDataFn)(BYTE* texture, void* arg, void* renderer);
 static CreateRenderTextureDataFn s_createRenderTextureData;
 static DWORD s_buffersResized;
+// Only what Gamebryo recreates after a live change's Reset (before the next Present): textures the
+// engine creates later have the size it wants (a fraction of the new size can equal another
+// fraction of an old one: 15x8 is 1/1024 of 15360x8640 and 1/256 of 3840x2160).
+static bool s_recreating;
+
+void SupersampleRecreating(bool on) { s_recreating = on && s_changes; }
 
 static void* __cdecl Hook_CreateRenderTextureData(BYTE* texture, void* arg, void* renderer)
 {
-    BYTE* buffer = s_changes && texture ? *(BYTE**)(texture + 0x30) : nullptr;
+    BYTE* buffer = s_recreating && texture ? *(BYTE**)(texture + 0x30) : nullptr;
     if (buffer && !IsBadWritePtr(buffer + 8, 8)) {
         int w = *(int*)(buffer + 8), h = *(int*)(buffer + 0xC), nw, nh;
         if (ScreenFraction(w, h, s_prevW, s_prevH, &nw, &nh) || ScreenFraction(w, h, s_startW, s_startH, &nw, &nh)) {

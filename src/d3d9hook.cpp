@@ -457,6 +457,7 @@ static HRESULT STDMETHODCALLTYPE H_Reset(IDirect3DDevice9* dev, D3DPRESENT_PARAM
     if (SUCCEEDED(hr)) {
         LabelBackBuffers(dev);
         SupersampleDeviceReady(dev);
+        SupersampleRecreating(true);
     }
     GameQueriesRestore(dev);
     return hr;
@@ -470,6 +471,7 @@ static HRESULT STDMETHODCALLTYPE H_Present(IDirect3DDevice9* dev, const RECT* sr
         Log("first Present (src %p, dst %p, window %p, from %p)", src, dst, wnd, _ReturnAddress());
     }
     if (!s_traceLockInit) { InitializeCriticalSection(&s_traceLock); s_traceLockInit = true; }
+    SupersampleRecreating(false);
     ReconEngineOnPresent();
     {
         D3DScope scope;
@@ -1365,6 +1367,7 @@ static HRESULT STDMETHODCALLTYPE H_ResetEx(IDirect3DDevice9Ex* dev, D3DPRESENT_P
     if (SUCCEEDED(hr)) {
         LabelBackBuffers((IDirect3DDevice9*)dev);
         SupersampleDeviceReady((IDirect3DDevice9*)dev);
+        SupersampleRecreating(true);
     }
     return hr;
 }

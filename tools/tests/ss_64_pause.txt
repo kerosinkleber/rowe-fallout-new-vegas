@@ -1,0 +1,21 @@
+# The pause menu after a live change to 64x (start with supersample=4): its buttons and its blurred
+# background were missing once (and a 15x8 luminance texture was created every frame). Saves nothing.
+log ss64pause: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+log ss64pause: to 64x
+ssapply 64
+wait 300
+shot
+log ss64pause: pause menu
+key esc
+wait 300
+shot
+key esc
+wait 200
+gameplay 900
+log ss64pause: done
+con qqq

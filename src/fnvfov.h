@@ -203,6 +203,7 @@ void SupersampleUndo(const char* why);                       // back to the size
 bool SupersampleCanUndo();                                   // the last live change can still be undone
 bool SupersamplePending();                                   // a live change waits for its Reset
 bool SupersampleDepthSize(UINT* w, UINT* h, D3DMULTISAMPLE_TYPE ms);  // the back buffer's depth surface at the virtual size after a live change
+void SupersampleRecreating(bool on);  // from a live change's Reset to the next Present: Gamebryo recreates its targets
 D3DMULTISAMPLE_TYPE SupersampleMsaaFor(UINT w, UINT h, D3DMULTISAMPLE_TYPE ms);  // scene target samples, capped after a live change
 void SupersampleApplyPending(D3DPRESENT_PARAMETERS* pp);     // Reset: the game's parameters get the new virtual size
 void SupersampleWriteState(FILE* f);
