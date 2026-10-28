@@ -1,0 +1,58 @@
+# Live resolution changes through the settings, for the test matrix (start with supersample=4,
+# pixelsize=1, pixelhud=1, lens 0; any window mode and MSAA): 16x; pixel size 3 (whole image);
+# a save loaded after the change; the Panini lens at FOV 120 with 9x; photo mode with a change
+# while it is on (to 4x) and the pause menu over it; back to 1x. A shot after each; rowe.log has
+# "changed live" for each change and the memory 60 frames later. The set lines save rowe.ini:
+# restore it afterwards. Nothing else is saved.
+log ssmatrix: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+log ssmatrix: 4x (start)
+shot
+log ssmatrix: 16x
+set supersample 16
+wait 150
+shot
+log ssmatrix: pixel size 3
+set pixelsize 3
+wait 150
+shot
+log ssmatrix: load a save
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+shot
+log ssmatrix: lens and 9x
+set pixelsize 1
+set supersample 9
+set lens 2
+set fov 120
+wait 150
+shot
+set lens 0
+set fov 0
+wait 30
+log ssmatrix: photo mode, change to 4x in it
+photo
+wait 120
+set supersample 4
+wait 150
+shot
+log ssmatrix: pause menu over photo mode
+key esc
+wait 150
+shot
+key esc
+wait 90
+photo
+wait 120
+gameplay 600
+log ssmatrix: 1x
+set supersample 1
+wait 150
+shot
+log ssmatrix: done
+con qqq

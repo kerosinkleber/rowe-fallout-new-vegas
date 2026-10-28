@@ -1,0 +1,26 @@
+# The pixelated look's whole image (pixelhud=1) and live changes (start with pixelsize=3,
+# pixelhud=1): a shot at the start's pixel size 3, then live to 2, then to 16x supersampling and
+# back to 3. Each shot should show square N x N pixels everywhere, HUD included.
+log sspixel: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+log sspixel: pixel 3 (start)
+shot
+log sspixel: pixel 2
+set pixelsize 2
+wait 150
+shot
+log sspixel: 16x
+set pixelsize 1
+set supersample 16
+wait 150
+shot
+log sspixel: pixel 3
+set pixelsize 3
+wait 150
+shot
+log sspixel: done
+con qqq

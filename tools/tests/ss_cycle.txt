@@ -1,0 +1,39 @@
+# Live supersampling changes in a row (start with supersample=4, pixelsize=0): ten changes through
+# factors and pixel sizes; 60 frames after each, rowe.log has the default-pool resources and their
+# memory, the process's private memory and its largest free address block. Ends at 4. Saves nothing.
+log sscycle: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+ssapply 9
+wait 120
+ssapply 16
+wait 120
+ssapply 4
+wait 120
+ssapply 1
+wait 120
+ssapply 1 2
+wait 120
+ssapply 1 8
+wait 120
+ssapply 25
+wait 120
+ssapply 4
+wait 120
+ssapply 36
+wait 120
+ssapply 4
+wait 120
+log sscycle: pause menu
+key esc
+wait 90
+shot
+key esc
+wait 60
+gameplay 600
+log sscycle: done
+shot
+con qqq

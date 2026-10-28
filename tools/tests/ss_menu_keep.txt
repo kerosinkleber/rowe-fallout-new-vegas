@@ -1,0 +1,35 @@
+# The settings menu's live resolution change (start with supersample=4, pixelsize=1): picking 16x
+# shows it at once and asks to keep it (shotmenu); not answered, it goes back to 4x after 15 s
+# (rowe.log "undone (not kept within 15 s)"). Then 9x is picked and kept: it stays after 20 s.
+# Then pixel size 2 is picked and "go back" chosen: 9x again. The picks save rowe.ini: restore it.
+log sskeep: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+overlay open
+overlay tab image
+wait 10
+log sskeep: pick 16, no answer
+overlay pick supersample 16
+wait 120
+shotmenu
+wait 1200
+shotmenu
+log sskeep: pick 9 and keep
+overlay pick supersample 9
+wait 120
+overlay keep
+wait 1300
+shotmenu
+log sskeep: pick pixel size 2, go back
+overlay pick pixelsize 2
+wait 120
+shotmenu
+overlay goback
+wait 150
+shotmenu
+overlay close
+log sskeep: done
+con qqq

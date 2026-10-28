@@ -1,0 +1,25 @@
+# Repro for a driver crash in the MO2 list (start with supersample=4): a live change while photo
+# mode is on (9x -> 4x), photo mode off, then a change to 1x (the matrix crashed in nvd3dum there).
+# Saves nothing.
+log ssphotochange: boot
+waitmenu 1013 3600
+wait 60
+con load "quicksave"
+gameplay 3600
+wait 120
+ssapply 9
+wait 150
+log ssphotochange: photo on, change to 4x in it
+photo
+wait 150
+ssapply 4
+wait 150
+photo
+wait 120
+gameplay 600
+log ssphotochange: 1x
+ssapply 1
+wait 150
+shot
+log ssphotochange: done
+con qqq

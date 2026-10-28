@@ -1,0 +1,68 @@
+# Stress for an intermittent driver crash in the MO2 list (NVTF bModifyDirectXBehavior=1; start with
+# supersample=4): five rounds of 16x, photo mode on, a change to 9x in it, photo mode off, then 1x.
+# The full matrix crashed in nvd3dum twice in three runs at the change after one made in photo mode.
+# Saves nothing.
+log ssstress: boot
+waitmenu 1013 3600
+wait 60
+con load "quicksave"
+gameplay 3600
+wait 120
+log ssstress: round 1
+ssapply 16
+wait 120
+photo
+wait 120
+ssapply 9
+wait 120
+photo
+wait 120
+ssapply 1
+wait 120
+log ssstress: round 2
+ssapply 16
+wait 120
+photo
+wait 120
+ssapply 9
+wait 120
+photo
+wait 120
+ssapply 1
+wait 120
+log ssstress: round 3
+ssapply 16
+wait 120
+photo
+wait 120
+ssapply 9
+wait 120
+photo
+wait 120
+ssapply 1
+wait 120
+log ssstress: round 4
+ssapply 16
+wait 120
+photo
+wait 120
+ssapply 9
+wait 120
+photo
+wait 120
+ssapply 1
+wait 120
+log ssstress: round 5
+ssapply 16
+wait 120
+photo
+wait 120
+ssapply 9
+wait 120
+photo
+wait 120
+ssapply 1
+wait 120
+shot
+log ssstress: done
+con qqq

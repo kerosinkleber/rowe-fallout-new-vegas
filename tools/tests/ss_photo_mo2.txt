@@ -1,0 +1,28 @@
+# Isolating a driver crash in the MO2 list (start with supersample=4): the matrix crashed in
+# nvd3dum at the change to 1x that followed photo mode. Here: photo mode on and off at 4x, then 1x;
+# then 4x and 1x again without photo mode. Saves nothing.
+log ssphoto: boot
+waitmenu 1013 3600
+wait 60
+con load "quicksave"
+gameplay 3600
+wait 120
+log ssphoto: photo on and off
+photo
+wait 150
+photo
+wait 120
+gameplay 600
+log ssphoto: 1x after photo mode
+ssapply 1
+wait 150
+shot
+log ssphoto: 4x
+ssapply 4
+wait 150
+log ssphoto: 1x again
+ssapply 1
+wait 150
+shot
+log ssphoto: done
+con qqq

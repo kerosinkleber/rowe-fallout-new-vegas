@@ -1,0 +1,30 @@
+# Live changes through the settings (start with supersample=1, pixelsize=1: the virtual back buffer
+# is the window's size): set supersample 16, set pixelsize 3, set pixelsize 1 (back to 16), set
+# supersample 1, each applied at once at a device reset (rowe.log "changed live"). Shots after each.
+# The set lines save rowe.ini: restore it afterwards. Nothing else is saved.
+log ssfollow: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+log ssfollow: factor 1 (start)
+shot
+log ssfollow: set 16
+set supersample 16
+wait 150
+shot
+log ssfollow: set pixel size 3
+set pixelsize 3
+wait 150
+shot
+log ssfollow: pixel size off
+set pixelsize 1
+wait 150
+shot
+log ssfollow: set 1
+set supersample 1
+wait 150
+shot
+log ssfollow: done
+con qqq

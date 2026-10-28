@@ -14,8 +14,10 @@
 // - Device: CreateDevice / Reset get a native back buffer. The mod creates a virtual-size render
 //   target, binds it in the back buffer's place and returns it from GetBackBuffer; the real back
 //   buffer is only bound by the mod itself (resolve, screenshot, settings menu).
-// The factor is read at start (rowe.ini supersample=, pixel-count multiplier) and applies to
-// the next start when changed in the menu.
+// The factor is read at start (rowe.ini supersample=, pixel-count multiplier). A changed factor or
+// pixel size applies at once ("live change" below): the game resets its device with the new virtual
+// size and builds its screen-sized targets again. At factor 1 the virtual back buffer is the
+// window's size, so that works from a start without supersampling too.
 //
 // The pixelated look (pixelsize=N, 2-8) is the same path the other way round: the virtual size is
 // the window's divided by N (rounded up, so whole pixels cover the window), and Present shows each
@@ -25,6 +27,7 @@
 // its interface there, at the window's resolution (see SupersamplePreUI). pixelhud applies at once.
 // It also works with the lens (which warps the small frame before it is shown) and photo mode.
 #include <windows.h>
+#include <psapi.h>
 #include <math.h>
 #include <string.h>
 #include "fnvfov.h"
@@ -47,8 +50,11 @@ static DWORD s_resolves;
 static bool s_overridden;  // the game's size was changed after the mod read iSize: off for this start
 static int s_pixel;        // pixelated look: window pixels per rendered pixel (0 = supersampling)
 
+static void SupersampleInstall();
+
 void SupersampleInit()
 {
+    SupersampleInstall();
     if (g_settings.pixelSize >= 2) {
         s_pixel = g_settings.pixelSize;
         s_active = true;
@@ -58,10 +64,13 @@ void SupersampleInit()
         return;
     }
     float f = g_settings.supersample;
-    s_active = f > 1.01f;
-    s_scale = s_active ? sqrtf(f) : 1.f;
+    // At factor 1 the virtual back buffer is the window's size (one copy per frame), so the factor
+    // can change live later; [dev] alwaysvirtual=0 leaves the game's own back buffer alone then.
+    s_active = f > 1.01f || g_settings.devAlwaysVirtual;
+    s_scale = f > 1.01f ? sqrtf(f) : 1.f;
     if (s_scale > 8.f) s_scale = 8.f;  // the resolve shader reads up to 9x9 source pixels
-    Log("supersample: factor %g (scale %.3f per axis)%s", f, s_scale, s_active ? "" : ", off");
+    Log("supersample: factor %g (scale %.3f per axis)%s", f, s_scale,
+        f > 1.01f ? "" : s_active ? ", virtual back buffer at the window's size (for live changes)" : ", off");
 }
 
 bool SupersampleActive() { return s_active && s_virtW > 0; }
@@ -69,11 +78,12 @@ int SupersamplePixelSize() { return SupersampleActive() ? s_pixel : 0; }
 
 // The virtual side for a native one: scaled and even (supersampling), or with the pixelated look
 // the smallest even size whose pixels, N window pixels each, cover the native side.
-static int VirtualSide(int native, float scale)
+static int VirtualSide(int native, float scale, int pixel)
 {
-    if (s_pixel) return ((native + s_pixel - 1) / s_pixel + 1) & ~1;
+    if (pixel) return ((native + pixel - 1) / pixel + 1) & ~1;
     return ((int)(native * scale + 0.5f)) & ~1;
 }
+static int VirtualSide(int native, float scale) { return VirtualSide(native, scale, s_pixel); }
 bool SupersampleOverridden() { return s_overridden; }
 
 // The sizes as soon as the INI has been read (before the device exists).
@@ -136,6 +146,7 @@ UINT SupersampleIniInt(LPCSTR app, LPCSTR key, UINT value, UINT (*readOther)(boo
 // capped at factor x samples <= 128 (16x keeps 8x MSAA, 64x gets 2x). Only what the game reads
 // at start is changed; FalloutPrefs.ini keeps the user's value.
 static int s_gameMsaa = -1;
+static int s_msaaCap = -1;  // after a live change: the most samples a scene target at the virtual size gets
 
 static UINT CapMsaa(UINT value)
 {
@@ -203,9 +214,255 @@ void SupersampleSyncSettings()
     }
 }
 
+// ---- live change -----------------------------------------------------------------------------
+// A new factor or pixel size while the game runs: the next Present reports a lost device (as the
+// devicelost test does), the game releases its device resources and resets with its own present
+// parameters, and at that Reset they get the new virtual size (SupersampleApplyPending). The game
+// keeps that copy for later Resets, and builds its screen-sized targets (scene, bloom, menu blur)
+// again from the new back buffer size; the virtual back buffer is created at it after the Reset.
+static bool s_pending;
+static int s_pendW, s_pendH, s_pendPixel;
+static float s_pendScale;
+static DWORD s_changes;
+static int s_startW, s_startH;  // the virtual size the device was created with
+static int s_prevW, s_prevH;    // the virtual size before the last live change
+static DWORD s_sinceChange;  // frames presented since the last live change (logs the memory after 60)
+// Undoing the last live change: what was shown before it, and the game's own Resets since.
+static bool s_canUndo;
+static bool s_undoing;  // the pending change is an undo
+static float s_prevFactor;
+static int s_prevPixel;
+static DWORD s_changeTick;
+static int s_resetsAfter;
+static float s_followSS = -1;  // the settings the live size last followed
+static int s_followPx = -1;
+
+// The process's committed memory and its largest free address block (a 32-bit process runs out of
+// address space before it runs out of memory), in MB.
+static void ProcessMemory(double* privateMb, double* largestFreeMb)
+{
+    PROCESS_MEMORY_COUNTERS_EX pmc = {sizeof(pmc)};
+    *privateMb = K32GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc)) ? pmc.PrivateUsage / 1048576.0 : 0;
+    SIZE_T largest = 0;
+    MEMORY_BASIC_INFORMATION mbi;
+    for (BYTE* p = nullptr; VirtualQuery(p, &mbi, sizeof(mbi)) == sizeof(mbi); p = (BYTE*)mbi.BaseAddress + mbi.RegionSize) {
+        if (mbi.State == MEM_FREE && mbi.RegionSize > largest) largest = mbi.RegionSize;
+        if ((BYTE*)mbi.BaseAddress + mbi.RegionSize < p) break;
+    }
+    *largestFreeMb = largest / 1048576.0;
+}
+
+// The virtual size for a factor (or pixel size, 2-8) at the native size; scale per axis.
+static void SizesFor(float factor, int pixel, float* scale, int* w, int* h)
+{
+    float sc = pixel ? 1.f / pixel : factor > 1.01f ? sqrtf(factor) : 1.f;
+    if (sc > 8.f) sc = 8.f;
+    int longest = s_nativeW > s_nativeH ? s_nativeW : s_nativeH;
+    if (!pixel && longest * sc > 16384) sc = 16384.f / longest;
+    *scale = sc;
+    *w = VirtualSide(s_nativeW, sc, pixel);
+    *h = VirtualSide(s_nativeH, sc, pixel);
+}
+
+bool SupersampleLive() { return s_active && !s_overridden && s_nativeW > 0 && s_virtW > 0; }
+
+const char* SupersampleRequest(float factor, int pixelSize)
+{
+    if (!SupersampleLive()) return s_overridden ? "off this start" : "supersampling was off at start";
+    int pixel = pixelSize >= 2 ? (pixelSize > 8 ? 8 : pixelSize) : 0;
+    float scale;
+    int w, h;
+    SizesFor(factor, pixel, &scale, &w, &h);
+    if (w == s_virtW && h == s_virtH && pixel == s_pixel) return "unchanged";
+    s_pendW = w;
+    s_pendH = h;
+    s_pendScale = scale;
+    s_pendPixel = pixel;
+    s_pending = true;
+    Log("supersample: change to %s %g: virtual %dx%d -> %dx%d at the next Reset", pixel ? "pixel size" : "factor",
+        pixel ? (double)pixel : (double)factor, s_virtW, s_virtH, w, h);
+    D3DSimulateDeviceLost();
+    return nullptr;
+}
+
+bool SupersamplePending() { return s_pending; }
+DWORD SupersampleChanges() { return s_changes; }
+
+// Goes back to what was shown before the last live change, with the settings (the menu's Revert,
+// its countdown, or a change the game could not take).
+void SupersampleUndo(const char* why)
+{
+    if (!s_canUndo) return;
+    s_canUndo = false;
+    Log("supersample: live change undone (%s)", why);
+    g_settings.pixelSize = s_prevPixel ? s_prevPixel : 1;
+    if (!s_prevPixel) g_settings.supersample = s_prevFactor;
+    SettingsSave();
+    s_followSS = g_settings.supersample;
+    s_followPx = g_settings.pixelSize;
+    s_undoing = SupersampleRequest(s_prevFactor, s_prevPixel) == nullptr;
+}
+
+bool SupersampleCanUndo() { return s_canUndo; }
+
+// Once per frame: a factor or pixel size changed in the settings (the menu, the MCM, a command, a
+// reload) is shown at once, outside loading screens.
+void SupersampleFollowSettings()
+{
+    if (s_followSS < 0) {
+        s_followSS = g_settings.supersample;
+        s_followPx = g_settings.pixelSize;
+        return;
+    }
+    if (s_followSS == g_settings.supersample && s_followPx == g_settings.pixelSize) return;
+    if (s_pending || ((BYTE*)0x011F308F)[1007]) return;  // a change under way, or a loading screen
+    s_followSS = g_settings.supersample;
+    s_followPx = g_settings.pixelSize;
+    if (!SupersampleLive()) return;  // applies at the next start
+    const char* why = SupersampleRequest(g_settings.supersample, g_settings.pixelSize >= 2 ? g_settings.pixelSize : 0);
+    if (why) Log("supersample: settings %g / pixel size %d not applied live (%s)", g_settings.supersample, g_settings.pixelSize, why);
+}
+
+// Depth surface creation after a live change: Gamebryo creates its depth surfaces again at the size
+// they had (the start's or the one before the change). A multisampled one belongs to a multisampled
+// scene target, which is made at the current size (Hook_CreateRenderTextureData), so it gets that
+// size exactly. The back buffer's own (no MSAA) is also bound with small targets (shadow maps), so it
+// only grows: D3D9 needs a depth surface at least as large as the render target.
+bool SupersampleDepthSize(UINT* w, UINT* h, D3DMULTISAMPLE_TYPE ms)
+{
+    bool before = ((int)*w == s_startW && (int)*h == s_startH) || ((int)*w == s_prevW && (int)*h == s_prevH);
+    if (!s_changes || !before || ((int)*w == s_virtW && (int)*h == s_virtH)) return false;
+    if (ms > D3DMULTISAMPLE_NONMASKABLE) {
+        *w = s_virtW;
+        *h = s_virtH;
+        return true;
+    }
+    if (s_virtW <= (int)*w && s_virtH <= (int)*h) return false;
+    if (s_virtW > (int)*w) *w = s_virtW;
+    if (s_virtH > (int)*h) *h = s_virtH;
+    return true;
+}
+
+// Render textures after a live change: at a Reset Gamebryo creates each render texture's data again
+// at its buffer's size (NiRenderedTexture +0x30, an Ni2DBuffer: width +8, height +0xC), which is
+// the screen size it was made for (or a fraction: bloom and luminance use 1/2, 1/4, 1/16 ... 1/1024).
+// The engine sets its viewports from the current size and reuses such textures from its pool (the
+// MO2 list draws its world into one), so a frame smaller than before filled only a corner of them.
+// Their buffers get the same fraction of the current virtual size first, so the texture, its buffer
+// and the engine's viewports agree. (0x00E8FF60: creates the data of a render texture.)
+static bool ScreenFraction(int w, int h, int fromW, int fromH, int* outW, int* outH)
+{
+    static const int kFractions[] = {1, 2, 4, 16, 64, 256, 1024};
+    if (fromW <= 0 || (fromW == s_virtW && fromH == s_virtH)) return false;
+    for (int k : kFractions) {
+        if (w != fromW / k || h != fromH / k) continue;
+        *outW = s_virtW / k > 0 ? s_virtW / k : 1;
+        *outH = s_virtH / k > 0 ? s_virtH / k : 1;
+        return true;
+    }
+    return false;
+}
+
+typedef void*(__cdecl* CreateRenderTextureDataFn)(BYTE* texture, void* arg, void* renderer);
+static CreateRenderTextureDataFn s_createRenderTextureData;
+static DWORD s_buffersResized;
+
+static void* __cdecl Hook_CreateRenderTextureData(BYTE* texture, void* arg, void* renderer)
+{
+    BYTE* buffer = s_changes && texture ? *(BYTE**)(texture + 0x30) : nullptr;
+    if (buffer && !IsBadWritePtr(buffer + 8, 8)) {
+        int w = *(int*)(buffer + 8), h = *(int*)(buffer + 0xC), nw, nh;
+        if (ScreenFraction(w, h, s_prevW, s_prevH, &nw, &nh) || ScreenFraction(w, h, s_startW, s_startH, &nw, &nh)) {
+            if (++s_buffersResized <= 200) Log("supersample: render texture %p %dx%d made %dx%d (live change)", texture, w, h, nw, nh);
+            *(int*)(buffer + 8) = nw;
+            *(int*)(buffer + 0xC) = nh;
+        }
+    }
+    return s_createRenderTextureData(texture, arg, renderer);
+}
+
+static void SupersampleInstall()
+{
+    static const BYTE kStart[] = {0x83, 0xEC, 0x08, 0x53, 0x55};  // sub esp, 8; push ebx; push ebp
+    s_createRenderTextureData = (CreateRenderTextureDataFn)InstallDetour(0x00E8FF60, kStart, sizeof(kStart),
+                                                                         (void*)Hook_CreateRenderTextureData, "render texture data (live supersampling)");
+}
+
+// Render target / depth surface creation: the samples for one at the virtual size after a live
+// change, capped for the new factor (never more than the game asked for).
+D3DMULTISAMPLE_TYPE SupersampleMsaaFor(UINT w, UINT h, D3DMULTISAMPLE_TYPE ms)
+{
+    if (s_msaaCap < 0 || ms <= D3DMULTISAMPLE_NONMASKABLE || (int)w != s_virtW || (int)h != s_virtH || (UINT)ms <= (UINT)s_msaaCap) return ms;
+    return s_msaaCap >= 2 ? (D3DMULTISAMPLE_TYPE)s_msaaCap : D3DMULTISAMPLE_NONE;
+}
+
+void SupersampleApplyPending(D3DPRESENT_PARAMETERS* pp)
+{
+    // The game resetting by itself right after a change: it cannot keep its targets at that size
+    // (36x with 8x MSAA reset over and over before the cap), so the change is undone.
+    if (!s_pending && s_canUndo && GetTickCount() - s_changeTick < 10000 && ++s_resetsAfter >= 3) {
+        SupersampleUndo("the game kept resetting its device at that size");
+        OverlayNotice("Resolution change undone: the game could not run at that size");
+    }
+    if (!s_pending || !pp) return;
+    s_pending = false;
+    if (!s_active || (int)pp->BackBufferWidth != s_virtW || (int)pp->BackBufferHeight != s_virtH) {
+        Log("supersample: change dropped: Reset asks for %ux%u, not the virtual %dx%d", pp->BackBufferWidth, pp->BackBufferHeight, s_virtW,
+            s_virtH);
+        return;
+    }
+    int oldW = s_virtW, oldH = s_virtH;
+    s_prevW = oldW;
+    s_prevH = oldH;
+    s_prevFactor = s_scale * s_scale;
+    s_prevPixel = s_pixel;
+    s_canUndo = !s_undoing;
+    s_undoing = false;
+    s_changeTick = GetTickCount();
+    s_resetsAfter = 0;
+    s_virtW = s_pendW;
+    s_virtH = s_pendH;
+    s_scale = s_pendScale;
+    s_pixel = s_pendPixel;
+    pp->BackBufferWidth = s_virtW;
+    pp->BackBufferHeight = s_virtH;
+    // The game's own copies of the size (read again by some code after start).
+    BYTE* ow = FindSettingObject("iSize W:Display");
+    BYTE* oh = FindSettingObject("iSize H:Display");
+    if (ow && oh && *(int*)(ow + 4) == oldW && *(int*)(oh + 4) == oldH) {
+        *(int*)(ow + 4) = s_virtW;
+        *(int*)(oh + 4) = s_virtH;
+    }
+    // The game's antialiasing is set at start (its sample count, 0x011C70CC, and each target keeps
+    // its own); changing it live crashed. Its scene targets at the new size get the cap instead
+    // (SupersampleMsaaFor), so a high factor does not keep 8x MSAA (36x with 8x: 7 GB, and the
+    // game reset its device over and over).
+    if (s_gameMsaa >= 0) s_msaaCap = CapMsaa((UINT)s_gameMsaa);
+    // The screen size globals (set at start by 0x004DA670): the render target pool sizes its
+    // textures from them (a plugin in the MO2 list made one more pool size read them), and some
+    // interface code reads the height.
+    int* screen = (int*)0x011F9430;
+    if (screen[0] == oldW && screen[1] == oldH) {
+        screen[0] = s_virtW;
+        screen[1] = s_virtH;
+    } else if (screen[0] || screen[1]) Log("supersample: screen size globals hold %dx%d, not %dx%d (left)", screen[0], screen[1], oldW, oldH);
+    if (BYTE* rd = *(BYTE**)0x011F4748)
+        if (*(int*)(rd + 0xA98) == oldW && *(int*)(rd + 0xA9C) == oldH) {
+            *(int*)(rd + 0xA98) = s_virtW;
+            *(int*)(rd + 0xA9C) = s_virtH;
+        }
+    ++s_changes;
+    s_sinceChange = 1;
+    Log("supersample: changed live (#%lu): virtual %dx%d -> %dx%d, %s", s_changes, oldW, oldH, s_virtW, s_virtH,
+        s_pixel ? "pixelated" : "supersampled");
+}
+
 bool SupersampleFixSize(int* w, int* h)
 {
-    if (!SupersampleActive() || *w != s_virtW || *h != s_virtH) return false;
+    // After live changes the game sizes its window at a device reset with the size it started
+    // with (or the one before the change): those are virtual sizes too.
+    bool virt = (*w == s_virtW && *h == s_virtH) || (s_changes && ((*w == s_startW && *h == s_startH) || (*w == s_prevW && *h == s_prevH)));
+    if (!SupersampleActive() || !virt || (*w == s_nativeW && *h == s_nativeH)) return false;
     *w = s_nativeW;
     *h = s_nativeH;
     return true;
@@ -405,6 +662,13 @@ void SupersampleDeviceReady(IDirect3DDevice9* dev)
     D3DScope scope;
     SupersampleLost();
     HRESULT hr = dev->CreateTexture(s_virtW, s_virtH, 1, D3DUSAGE_RENDERTARGET, s_format, D3DPOOL_DEFAULT, &s_fake, nullptr);
+    if (FAILED(hr) && s_canUndo) {  // right after a live change: back to the size before it
+        Log("supersample: virtual back buffer %dx%d failed (%08lx)", s_virtW, s_virtH, hr);
+        s_fake = nullptr;
+        SupersampleUndo("not enough video memory");
+        OverlayNotice("Resolution change undone: not enough video memory");
+        return;
+    }
     if (FAILED(hr)) {
         Log("supersample: virtual back buffer %dx%d failed (%08lx); supersampling off", s_virtW, s_virtH, hr);
         s_active = false;
@@ -412,6 +676,10 @@ void SupersampleDeviceReady(IDirect3DDevice9* dev)
     }
     s_fake->GetSurfaceLevel(0, &s_fakeSurface);
     dev->SetRenderTarget(0, s_fakeSurface);
+    if (!s_startW) {
+        s_startW = s_virtW;
+        s_startH = s_virtH;
+    }
     Log("supersample: virtual back buffer %dx%d (%p), native %dx%d", s_virtW, s_virtH, s_fakeSurface, s_nativeW, s_nativeH);
 }
 
@@ -568,6 +836,17 @@ void SupersamplePreUI(IDirect3DDevice9* dev)
 // pixels; after an interface drawn at the window's resolution the frame is already there.
 void SupersampleResolve(IDirect3DDevice9* dev, IDirect3DSurface9* realBB)
 {
+    SupersampleFollowSettings();
+    if (s_sinceChange && ++s_sinceChange == 60) {
+        long count;
+        double mb;
+        D3DResourceTotals(&count, &mb);
+        double priv, largest;
+        ProcessMemory(&priv, &largest);
+        Log("supersample: 60 frames after live change #%lu: %ld default-pool resources, %.0f MB; process private %.0f MB, largest free "
+            "block %.0f MB", s_changes, count, mb, priv, largest);
+        s_sinceChange = 0;
+    }
     if (s_split) {
         EndSplit(dev);
         return;
@@ -579,8 +858,10 @@ void SupersampleResolve(IDirect3DDevice9* dev, IDirect3DSurface9* realBB)
 
 void SupersampleWriteState(FILE* f)
 {
-    fprintf(f, "supersample: setting %g, active %d, native %dx%d, virtual %dx%d, virtual back buffer %p, resolves %lu\n",
-            g_settings.supersample, SupersampleActive(), s_nativeW, s_nativeH, s_virtW, s_virtH, s_fakeSurface, s_resolves);
+    fprintf(f, "supersample: setting %g, active %d, native %dx%d, virtual %dx%d (scale %.3f), virtual back buffer %p, resolves %lu, "
+            "live changes %lu, pending %d\n",
+            g_settings.supersample, SupersampleActive(), s_nativeW, s_nativeH, s_virtW, s_virtH, s_scale, s_fakeSurface, s_resolves,
+            s_changes, s_pending);
     fprintf(f, "pixelated: setting %d hud %s, active %d (%d window pixels per game pixel), interface at window resolution %lu frames, "
             "skipped %lu (%s), split now %d, depth %p\n",
             g_settings.pixelSize, g_settings.pixelHud ? "pixelated" : "sharp", SupersamplePixelSize() > 0, s_pixel, s_splits, s_splitSkips,

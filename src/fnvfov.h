@@ -84,6 +84,7 @@ struct Settings {
     int devFullscreen = -1;  // [dev] fullscreen: -1 = the game's own bFull Screen
     int devWidth = 0, devHeight = 0;  // [dev] size: window size for this start, 0 = the game's own
     int devMsaa = -1;  // [dev] msaa: the game's iMultiSample for this start (0, 2, 4, 8), -1 = the game's own
+    bool devAlwaysVirtual = true;  // [dev] alwaysvirtual=0: at factor 1 the game keeps its own back buffer (no live changes)
     bool devPhotoMarker = true;  // [dev] photomarker=0: photo mode leaves no marker (moves back by position)
     bool devVatsShrink = true;  // [dev] vatsshrink=0: VATS image space at the game's size (comparison)
 };
@@ -101,6 +102,8 @@ void D3DAttach(IDirect3DDevice9* device, const char* how);
 IDirect3DDevice9* D3DDevice();                  // the hooked device, or null
 HRESULT D3DRealBackBuffer(IDirect3DSurface9** out);  // the swap chain's own back buffer
 void D3DSimulateDeviceLost();                    // test: the game resets its device as after a loss
+void D3DResourceTotals(long* count, double* megabytes);  // live default-pool resources and their memory
+void D3DWriteResourceState(FILE* f);            // state file: live default-pool resources and their memory
 void D3DReportLiveResources(const char* when);   // logs the default-pool resources still alive, by creating module
 void D3DBackBufferSize(int* w, int* h);         // the size the engine renders at (virtual with SS)
 void D3DTraceStamp(const char* what);           // marks an engine event in the frame trace
@@ -193,6 +196,15 @@ const RECT* SupersampleUiScissor(const RECT* r, RECT* buf);               // Set
 void SupersampleUiGetScissor(RECT* r);
 const D3DRECT* SupersampleUiClearRects(DWORD count, const D3DRECT* rects, D3DRECT* buf, DWORD bufCount);
 void SupersampleLost();
+bool SupersampleLive();                                      // the factor and pixel size can change while the game runs
+const char* SupersampleRequest(float factor, int pixelSize);  // live change at the next Reset; null, or why not
+DWORD SupersampleChanges();                                  // live changes so far
+void SupersampleUndo(const char* why);                       // back to the size (and settings) before the last live change
+bool SupersampleCanUndo();                                   // the last live change can still be undone
+bool SupersamplePending();                                   // a live change waits for its Reset
+bool SupersampleDepthSize(UINT* w, UINT* h, D3DMULTISAMPLE_TYPE ms);  // the back buffer's depth surface at the virtual size after a live change
+D3DMULTISAMPLE_TYPE SupersampleMsaaFor(UINT w, UINT h, D3DMULTISAMPLE_TYPE ms);  // scene target samples, capped after a live change
+void SupersampleApplyPending(D3DPRESENT_PARAMETERS* pp);     // Reset: the game's parameters get the new virtual size
 void SupersampleWriteState(FILE* f);
 
 // dinput.cpp: the game's DirectInput mouse (see the file header).

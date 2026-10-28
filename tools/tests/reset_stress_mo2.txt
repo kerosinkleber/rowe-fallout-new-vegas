@@ -1,0 +1,67 @@
+# Baseline for ss_photo_stress_mo2: the same rounds with plain device resets (devicelost, no size
+# change), to see whether resets alone crash the MO2 list (NVTF bModifyDirectXBehavior=1).
+# Saves nothing.
+log resetstress: boot
+waitmenu 1013 3600
+wait 60
+con load "quicksave"
+gameplay 3600
+wait 120
+log resetstress: round 1
+devicelost
+wait 120
+photo
+wait 120
+devicelost
+wait 120
+photo
+wait 120
+devicelost
+wait 120
+log resetstress: round 2
+devicelost
+wait 120
+photo
+wait 120
+devicelost
+wait 120
+photo
+wait 120
+devicelost
+wait 120
+log resetstress: round 3
+devicelost
+wait 120
+photo
+wait 120
+devicelost
+wait 120
+photo
+wait 120
+devicelost
+wait 120
+log resetstress: round 4
+devicelost
+wait 120
+photo
+wait 120
+devicelost
+wait 120
+photo
+wait 120
+devicelost
+wait 120
+log resetstress: round 5
+devicelost
+wait 120
+photo
+wait 120
+devicelost
+wait 120
+photo
+wait 120
+devicelost
+wait 120
+shot
+log resetstress: done
+con qqq

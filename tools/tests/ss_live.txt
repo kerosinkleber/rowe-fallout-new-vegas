@@ -1,0 +1,39 @@
+# Live supersampling change (start with supersample=4, pixelsize=0): gameplay shot, then the factor
+# changes live at a device reset (ssapply): 16, 1, 9, pixel size 3, back to 4. A shot in gameplay
+# after each and of the pause menu at the end; rowe_state's "live changes" counts them. Saves nothing.
+log sslive: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+log sslive: factor 4 (start)
+shot
+log sslive: to 16
+ssapply 16
+wait 150
+shot
+log sslive: to 1
+ssapply 1
+wait 150
+shot
+log sslive: to 9
+ssapply 9
+wait 150
+shot
+log sslive: pixel size 3
+ssapply 1 3
+wait 150
+shot
+log sslive: back to 4
+ssapply 4
+wait 150
+shot
+log sslive: pause menu
+key esc
+wait 150
+shot
+key esc
+wait 90
+log sslive: done
+con qqq

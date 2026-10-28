@@ -9,9 +9,11 @@
 //                    10-160 in the FOV slider's unit: where the zoom with the weapon holstered ends
 //   pipboyfov=0      0 = game default (fPipboy1stPersonFOV, 47), otherwise 20-90: the Pip-Boy's FOV
 //                    (lower = the Pip-Boy appears bigger)
-//   supersample=1    pixel-count multiplier 1-64 (4 = twice the width and height, 64 = 8 times); next start
+//   supersample=1    pixel-count multiplier 1-64 (4 = twice the width and height, 64 = 8 times); applies
+//                    at once (a device reset) and at the next start
 //   pixelsize=1      pixelated look: 2-8 window pixels per game pixel (the game renders at the window's
-//                    size / pixelsize, shown with hard square pixels); 1 = off. Overrides supersample; next start
+//                    size / pixelsize, shown with hard square pixels); 1 = off. Overrides supersample;
+//                    applies at once
 //   pixelhud=1       pixelated look: 1 the whole image at the low resolution (HUD and menus too), 0 the HUD
 //                    and menus stay sharp (window resolution) over the pixelated world; applies at once
 //   mousetrap=0      0 off, 1 gameplay only, 2 menus too
@@ -53,6 +55,8 @@
 //                    leaves it alone (FalloutPrefs.ini keeps its value)
 //   vatsshrink=0     VATS's image-space textures at the game's (supersampled) size, for comparison
 //   photomarker=0    photo mode leaves no start marker (moves the player back by position: unreliable)
+//   alwaysvirtual=0  at supersample=1 the game keeps its own back buffer (supersampling then changes
+//                    only at the next start)
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -189,6 +193,7 @@ void SettingsLoad()
     s.devMsaa = GetPrivateProfileIntA("dev", "msaa", -1, path);
     s.devVatsShrink = GetPrivateProfileIntA("dev", "vatsshrink", 1, path) != 0;
     s.devPhotoMarker = GetPrivateProfileIntA("dev", "photomarker", 1, path) != 0;
+    s.devAlwaysVirtual = GetPrivateProfileIntA("dev", "alwaysvirtual", 1, path) != 0;
     char size[32] = "";
     GetPrivateProfileStringA("dev", "size", "", size, sizeof(size), path);
     if (size[0] && sscanf(size, "%dx%d", &s.devWidth, &s.devHeight) == 2 && s.devWidth >= 320 && s.devHeight >= 240) {

@@ -43,6 +43,7 @@ void ModWriteState(FILE* f)
     FovWriteState(f);
     LensWriteState(f);
     SupersampleWriteState(f);
+    D3DWriteResourceState(f);
     ReshadeWriteState(f);
     AutosaveWriteState(f);
     PhotoWriteState(f);

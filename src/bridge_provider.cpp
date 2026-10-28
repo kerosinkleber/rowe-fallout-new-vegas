@@ -148,7 +148,8 @@ static int CmdFovTrace(const char* args, FNVBridgeJson* out, char*, int)
 static const FNVBridgeCommand kCommands[] = {
     {"set",
      "Change a ROWE setting and save it to rowe.ini, as the settings menu does: fov (60-160, 0 = game default), lens (0 off, 1 Panini, ...), pipboyfov, "
-     "zoomfov, mousetrap, scopelens, fisheyecircle; supersample, pixelsize and skipintros apply at the next start. Replies with "
+     "zoomfov, mousetrap, scopelens, fisheyecircle, supersample and pixelsize (these two at a device reset a frame later); skipintros "
+     "applies at the next start. Replies with "
      "ROWE's state three frames later.",
      "{\"key\": {\"type\": \"string\"}, \"value\": {\"type\": \"number\"}}", 3, CmdSet},
     {"reload", "Read rowe.ini again. Replies with ROWE's state three frames later.", nullptr, 3, CmdReload},

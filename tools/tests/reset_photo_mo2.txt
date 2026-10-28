@@ -1,0 +1,32 @@
+# Photo mode after a device reset in the MO2 list (TTW; quicksave): a simulated device loss (the
+# game resets at the same size), then photo mode on and off three times. Photo mode crashed at
+# 0x004EFF95 on a background thread after live resolution changes; this checks whether any Reset
+# does it. Saves nothing.
+log resetphoto: boot
+waitmenu 1013 3600
+wait 60
+con load "quicksave"
+gameplay 3600
+wait 120
+log resetphoto: device lost
+devicelost
+wait 120
+log resetphoto: photo 1
+photo
+wait 150
+photo
+wait 120
+log resetphoto: photo 2
+photo
+wait 150
+photo
+wait 120
+log resetphoto: device lost again, photo 3
+devicelost
+wait 60
+photo
+wait 150
+photo
+wait 120
+log resetphoto: done
+con qqq

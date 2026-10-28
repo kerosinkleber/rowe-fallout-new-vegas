@@ -439,6 +439,7 @@ static void GameQueriesRestore(IDirect3DDevice9* dev);
 
 static HRESULT STDMETHODCALLTYPE H_Reset(IDirect3DDevice9* dev, D3DPRESENT_PARAMETERS* pp)
 {
+    SupersampleApplyPending(pp);
     LogPP("Reset (requested)", pp);
     {
         D3DScope scope;
@@ -452,7 +453,7 @@ static HRESULT STDMETHODCALLTYPE H_Reset(IDirect3DDevice9* dev, D3DPRESENT_PARAM
     s_simLost = 0;
     LogPP("Reset (result)", pp);
     if (ss) SupersampleRestorePresentParams(pp);
-    Log("Reset -> %08lx (from %p)", hr, _ReturnAddress());
+    Log("Reset -> %08lx (from %p, parameters at %p)", hr, _ReturnAddress(), pp);
     if (SUCCEEDED(hr)) {
         LabelBackBuffers(dev);
         SupersampleDeviceReady(dev);
@@ -481,6 +482,8 @@ static HRESULT STDMETHODCALLTYPE H_Present(IDirect3DDevice9* dev, const RECT* sr
     }
     HRESULT hr = o_Present(dev, src, dst, wnd, dirty);
     TraceBeginOrEnd();
+    static LONG failures;
+    if (FAILED(hr) && InterlockedIncrement(&failures) <= 20) Log("Present -> %08lx", hr);
     return hr;
 }
 
@@ -558,14 +561,54 @@ static bool s_trackLockInit;
 struct Marker;
 static Marker* s_markers;
 static LONG s_markerCount;
+static double s_markerBytes;  // video memory the live default-pool resources take (estimate)
 
 struct Marker {
     IUnknownVtbl* lpVtbl;
     LONG refs;
     void* from;
+    double bytes;
     char what[48];
     Marker *prev, *next;
 };
+
+static double FormatBytes(D3DFORMAT f)
+{
+    switch (f) {
+    case D3DFMT_A16B16G16R16F: case D3DFMT_A16B16G16R16: case D3DFMT_G32R32F: return 8;
+    case D3DFMT_A32B32G32R32F: return 16;
+    case D3DFMT_R16F: case D3DFMT_R5G6B5: case D3DFMT_D16: case D3DFMT_L16: return 2;
+    case D3DFMT_A8: case D3DFMT_L8: return 1;
+    case D3DFMT_DXT1: return 0.5;
+    case D3DFMT_DXT3: case D3DFMT_DXT5: return 1;
+    default: return 4;
+    }
+}
+
+// The memory a resource takes: its top level (render targets and depth surfaces have one), times
+// its samples; buffers by their size.
+static double ResourceBytes(IDirect3DResource9* r)
+{
+    D3DSURFACE_DESC d;
+    switch (r->lpVtbl->GetType(r)) {
+    case D3DRTYPE_TEXTURE:
+        if (FAILED(((IDirect3DTexture9*)r)->lpVtbl->GetLevelDesc((IDirect3DTexture9*)r, 0, &d))) return 0;
+        break;
+    case D3DRTYPE_SURFACE:
+        if (FAILED(((IDirect3DSurface9*)r)->lpVtbl->GetDesc((IDirect3DSurface9*)r, &d))) return 0;
+        break;
+    case D3DRTYPE_VERTEXBUFFER: {
+        D3DVERTEXBUFFER_DESC v;
+        return SUCCEEDED(((IDirect3DVertexBuffer9*)r)->lpVtbl->GetDesc((IDirect3DVertexBuffer9*)r, &v)) ? v.Size : 0;
+    }
+    case D3DRTYPE_INDEXBUFFER: {
+        D3DINDEXBUFFER_DESC i;
+        return SUCCEEDED(((IDirect3DIndexBuffer9*)r)->lpVtbl->GetDesc((IDirect3DIndexBuffer9*)r, &i)) ? i.Size : 0;
+    }
+    default: return 0;
+    }
+    return (double)d.Width * d.Height * FormatBytes(d.Format) * (d.MultiSampleType > 1 ? d.MultiSampleType : 1);
+}
 
 static HRESULT STDMETHODCALLTYPE MarkerQI(IUnknown* u, REFIID riid, void** out)
 {
@@ -588,6 +631,7 @@ static ULONG STDMETHODCALLTYPE MarkerRelease(IUnknown* u)
         else s_markers = m->next;
         if (m->next) m->next->prev = m->prev;
         --s_markerCount;
+        s_markerBytes -= m->bytes;
         LeaveCriticalSection(&s_trackLock);
         HeapFree(GetProcessHeap(), 0, m);
     }
@@ -604,6 +648,7 @@ static void Track(IDirect3DResource9* r, D3DPOOL pool, void* from, const char* f
     m->lpVtbl = &s_markerVtbl;
     m->refs = 1;
     m->from = from;
+    m->bytes = ResourceBytes(r);
     va_list a;
     va_start(a, fmt);
     _vsnprintf(m->what, sizeof(m->what) - 1, fmt, a);
@@ -613,6 +658,7 @@ static void Track(IDirect3DResource9* r, D3DPOOL pool, void* from, const char* f
     if (s_markers) s_markers->prev = m;
     s_markers = m;
     ++s_markerCount;
+    s_markerBytes += m->bytes;
     LeaveCriticalSection(&s_trackLock);
     IUnknown* u = (IUnknown*)m;
     r->lpVtbl->SetPrivateData(r, kTrackGuid, u, sizeof(u), D3DSPD_IUNKNOWN);  // with D3DSPD_IUNKNOWN the data is the pointer itself
@@ -775,6 +821,23 @@ static void ReportLiveObjs()
     }
 }
 
+void D3DResourceTotals(long* count, double* megabytes)
+{
+    *count = s_markerCount;
+    *megabytes = s_markerBytes / 1048576.0;
+}
+
+// State file: the live default-pool resources, their memory, and the large ones (64 MB and up).
+void D3DWriteResourceState(FILE* f)
+{
+    if (!s_trackLockInit) return;
+    EnterCriticalSection(&s_trackLock);
+    fprintf(f, "default pool: %ld resources, %.0f MB\n", s_markerCount, s_markerBytes / 1048576.0);
+    for (Marker* m = s_markers; m; m = m->next)
+        if (m->bytes >= 64.0 * 1048576) fprintf(f, "  %6.0f MB %s (from %p)\n", m->bytes / 1048576.0, m->what, m->from);
+    LeaveCriticalSection(&s_trackLock);
+}
+
 // Lists the default-pool resources that still exist, by the module that created them.
 void D3DReportLiveResources(const char* when)
 {
@@ -839,6 +902,11 @@ static HRESULT STDMETHODCALLTYPE H_CreateTexture(IDirect3DDevice9* dev, UINT w, 
                                                  D3DPOOL pool, IDirect3DTexture9** out, HANDLE* shared)
 {
     UINT askW = w, askH = h;
+    if (!s_internal && (usage & D3DUSAGE_DEPTHSTENCIL) && SupersampleDepthSize(&w, &h, D3DMULTISAMPLE_NONE)) {
+        Log("CreateTexture %ux%u %s (depth) made %ux%u (the virtual size, live supersampling change)", askW, askH, FormatName(fmt), w, h);
+        askW = w;
+        askH = h;
+    }
     bool shrunk = !s_internal && ShrinkSize(&w, &h, usage, fmt);
     HRESULT hr = o_CreateTexture(dev, w, h, levels, usage, fmt, pool, out, shared);
     if (SUCCEEDED(hr)) Track((IDirect3DResource9*)*out, pool, s_internal ? (void*)H_CreateTexture : _ReturnAddress(), "texture %ux%u %s", w, h, FormatName(fmt));
@@ -869,6 +937,14 @@ static HRESULT STDMETHODCALLTYPE H_CreateTexture(IDirect3DDevice9* dev, UINT w, 
 static HRESULT STDMETHODCALLTYPE H_CreateRenderTarget(IDirect3DDevice9* dev, UINT w, UINT h, D3DFORMAT fmt, D3DMULTISAMPLE_TYPE ms,
                                                       DWORD q, BOOL lockable, IDirect3DSurface9** out, HANDLE* shared)
 {
+    if (!s_internal) {
+        D3DMULTISAMPLE_TYPE capped = SupersampleMsaaFor(w, h, ms);
+        if (capped != ms) {
+            Log("CreateRenderTarget %ux%u MSAA %d made with MSAA %d (live supersampling change)", w, h, ms, capped);
+            ms = capped;
+            q = 0;
+        }
+    }
     HRESULT hr = o_CreateRenderTarget(dev, w, h, fmt, ms, q, lockable, out, shared);
     if (SUCCEEDED(hr)) Track((IDirect3DResource9*)*out, D3DPOOL_DEFAULT, s_internal ? (void*)H_CreateRenderTarget : _ReturnAddress(), "render target %ux%u %s", w, h, FormatName(fmt));
     int id = ++s_rtSerial;
@@ -885,6 +961,16 @@ static HRESULT STDMETHODCALLTYPE H_CreateRenderTarget(IDirect3DDevice9* dev, UIN
 static HRESULT STDMETHODCALLTYPE H_CreateDepthStencilSurface(IDirect3DDevice9* dev, UINT w, UINT h, D3DFORMAT fmt, D3DMULTISAMPLE_TYPE ms,
                                                              DWORD q, BOOL discard, IDirect3DSurface9** out, HANDLE* shared)
 {
+    if (!s_internal) {
+        UINT askW = w, askH = h;
+        if (SupersampleDepthSize(&w, &h, ms)) Log("CreateDepthStencilSurface %ux%u made %ux%u (the virtual size, live supersampling change)", askW, askH, w, h);
+        D3DMULTISAMPLE_TYPE capped = SupersampleMsaaFor(w, h, ms);
+        if (capped != ms) {
+            Log("CreateDepthStencilSurface %ux%u MSAA %d made with MSAA %d (live supersampling change)", w, h, ms, capped);
+            ms = capped;
+            q = 0;
+        }
+    }
     HRESULT hr = o_CreateDepthStencilSurface(dev, w, h, fmt, ms, q, discard, out, shared);
     if (SUCCEEDED(hr)) Track((IDirect3DResource9*)*out, D3DPOOL_DEFAULT, s_internal ? (void*)H_CreateDepthStencilSurface : _ReturnAddress(), "depth surface %ux%u %s", w, h, FormatName(fmt));
     int id = ++s_dsSerial;
@@ -1260,6 +1346,7 @@ static HRESULT STDMETHODCALLTYPE H_CreateDeviceEx(IDirect3D9Ex* d3d, UINT adapte
 
 static HRESULT STDMETHODCALLTYPE H_ResetEx(IDirect3DDevice9Ex* dev, D3DPRESENT_PARAMETERS* pp, D3DDISPLAYMODEEX* mode)
 {
+    SupersampleApplyPending(pp);
     LogPP("ResetEx (requested)", pp);
     {
         D3DScope scope;

@@ -12,11 +12,13 @@
 //                    usershot              screenshot as the screenshot key takes it (screenshotdir, size, format)
 //                    photo                 photo mode on / off, as the photo shortcut
 //                    wheel <delta>         photo mode's wheel zoom, as the mouse wheel (120 per notch, + closer)
-//                    overlay <action>      settings menu: open, close, tab <name> (View, Image, ...)
+//                    overlay <action>      settings menu: open, close, tab <name> (View, Image, ...), pick
+//                                          supersample|pixelsize <n> (as the Image tab's lists), keep, goback
 //                    set <key> <value>     change a setting and save rowe.ini (fov, zoomfov, lens, pipboyfov,
 //                                          supersample, pixelsize, pixelhud, mousetrap, skipintros, scopelens)
 //                    reload                re-read rowe.ini
 //                    devicelost            the next Present reports a lost device, so the game resets it
+//                    ssapply <f> [<n>]     change supersampling to factor f (or pixel size n) live, at a device reset
 //                    restart               as the menu's restart button: save, start again, load the save
 //                    cursor <x> <y>        write the game's menu cursor fields (render pixels; does not move it)
 //                    wincursor <x> <y>     move the Windows cursor to that client position
@@ -133,6 +135,12 @@ static void Run(char* cmd)
     else if (lstrcmpiA(cmd, "overlay") == 0 && arg) OverlayCommand(arg);
     else if (lstrcmpiA(cmd, "reload") == 0) SettingsLoad();
     else if (lstrcmpiA(cmd, "devicelost") == 0) D3DSimulateDeviceLost();
+    else if (lstrcmpiA(cmd, "ssapply") == 0 && arg) {
+        float factor = 0;
+        int pixel = 0;
+        if (sscanf(arg, "%f %d", &factor, &pixel) >= 1)
+            if (const char* why = SupersampleRequest(factor, pixel)) Log("cmd: ssapply %s: not applied (%s)", arg, why);
+    }
     else if (lstrcmpiA(cmd, "restart") == 0) RestartGame();
     else if (lstrcmpiA(cmd, "restartnow") == 0) RestartNow(arg && !lstrcmpiA(arg, "save"));
     else if (lstrcmpiA(cmd, "wincursor") == 0 && arg) {

@@ -1,0 +1,19 @@
+# Live change to a high factor and back (start with supersample=4, pixelsize=0, the game's MSAA 8x):
+# at 36x the game's antialiasing has to drop to 0 as at a start with 36x (rowe.log: "game
+# antialiasing 8x -> 0x", the scene target without MSAA, one Reset only), and come back at 4x.
+log ssmsaa: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+log ssmsaa: to 36
+ssapply 36
+wait 200
+shot
+log ssmsaa: to 4
+ssapply 4
+wait 120
+shot
+log ssmsaa: done
+con qqq

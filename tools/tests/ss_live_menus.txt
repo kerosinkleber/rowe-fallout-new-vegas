@@ -1,0 +1,54 @@
+# Live supersampling change and the game's other views (start with supersample=9, pixelsize=0;
+# Save 9 has an NPC in view for VATS): the factor changes live to 16, then shots and one-frame
+# traces (rowe_trace.txt) of gameplay, aiming, the Pip-Boy, the pause menu and VATS. The traces
+# show whether any target from before the change (5760x3240) is still bound. VATS comes last: the
+# game quits from it (closing VATS with CloseAllMenus and opening menus after crashed twice, in
+# BSScissorTriShape's list, with and without a live change). God mode; nothing is saved.
+log ssmenus: boot
+waitmenu 1013 3600
+wait 60
+con load "Save 9   Courier  Goodsprings  00 06 48"
+gameplay 3600
+wait 120
+con tgm
+key r
+wait 120
+log ssmenus: to 16
+ssapply 16
+wait 150
+log ssmenus: gameplay
+shot
+trace
+wait 30
+log ssmenus: aim
+keydown rmb
+wait 90
+shot
+keyup rmb
+wait 60
+log ssmenus: pipboy
+con TapControl 14
+wait 150
+shot
+trace
+wait 30
+con TapControl 14
+wait 150
+gameplay 600
+log ssmenus: pause menu
+key esc
+wait 150
+shot
+trace
+wait 30
+key esc
+wait 90
+gameplay 600
+log ssmenus: vats
+key v
+wait 200
+shot
+trace
+wait 30
+log ssmenus: done
+con qqq

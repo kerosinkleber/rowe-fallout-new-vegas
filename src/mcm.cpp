@@ -186,7 +186,7 @@ static const char* Title(int id)
     case kOptZoomGame: return "Use the game's zoom";
     case kOptPipboy: return "Pip-Boy FOV";
     case kOptPipboyGame: return "Use the game's Pip-Boy FOV";
-    case kOptSupersample: return "Supersampling (next start)";
+    case kOptSupersample: return SupersampleLive() ? "Supersampling" : "Supersampling (next start)";
     case kOptMousetrap: return "Mouse trap";
     case kOptIntros: return "Skip intro videos (next start)";
     case kOptShotSize: return "Screenshot size";
@@ -216,8 +216,11 @@ static const char* Help(int id)
     case kOptZoomGame: return "Use the game's zoom (fIronSightsZoomDefault).";
     case kOptPipboy: return "The Pip-Boy's field of view: lower makes the Pip-Boy appear bigger.";
     case kOptPipboyGame: return "Use the game's Pip-Boy FOV (fPipboy1stPersonFOV).";
-    case kOptSupersample: return "Renders at a larger size and scales it down: sharper, slower. Pixels rendered per pixel shown. "
-                                 "Applies at the next start (F8 menu: restart game).";
+    case kOptSupersample:
+        return SupersampleLive() ? "Renders at a larger size and scales it down: sharper, slower. Pixels rendered per pixel shown. "
+                                   "Applies at once (the screen goes black for a moment); off while the pixelated look is on."
+                                 : "Renders at a larger size and scales it down: sharper, slower. Pixels rendered per pixel shown. "
+                                   "Applies at the next start (F8 menu: restart game).";
     case kOptMousetrap: return "In gameplay: the mouse stays in the window in gameplay and is free in menus. Always: also in menus.";
     case kOptIntros: return "Skip the intro videos. Applies at the next start.";
     case kOptShotSize: return "Screenshots (F12 by default) at the supersampled size or at the window's.";
