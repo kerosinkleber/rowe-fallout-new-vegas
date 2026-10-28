@@ -1,0 +1,48 @@
+# Photo mode keeps the Pip-Boy shut (save "ROWE Photo Test"). A baseline first: Tab through
+# xNVSE opens and closes the Pip-Boy. Then with photo mode on the runner presses the real Tab key
+# (SendInput) at "tab now 1": the Pip-Boy must stay shut and photo mode on, and it must not open
+# when photo mode ends either. After photo mode the real Tab at "tab now 2" must open it again (its
+# control enabled again). (xNVSE's TapKey of a disabled key is held and played when the key is
+# enabled again: not what a player's key press does, so the photo mode part uses the real key.)
+# The runner focuses the game at "focus now 1". Nothing is saved.
+log photopip: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+waitgameplay 3600
+wait 60
+log photopip: focus now 1
+wait 120
+waitfocus 1200
+ifmenu 1013 key esc
+waitnomenu 1013 300
+wait 60
+ifmenu 1013 key esc
+waitnomenu 1013 300
+waitgameplay 600
+log photopip: baseline tab
+key tab
+wait 150
+log photopip: baseline after tab
+shot
+key tab
+wait 150
+waitgameplay 600
+photo
+wait 120
+log photopip: tab now 1
+wait 150
+log photopip: after tab in photo mode
+shot
+photo
+wait 150
+log photopip: photo off
+shot
+log photopip: tab now 2
+wait 150
+log photopip: after tab after photo mode
+shot
+key tab
+wait 150
+log photopip: done
+con qqq

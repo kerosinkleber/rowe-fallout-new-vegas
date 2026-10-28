@@ -9,18 +9,18 @@
 // it flies, and moving the player after it with SetPos leaves their cell behind and crashed the game).
 // Holding Shift flies photofast times faster, Space flies up and Ctrl down: see Hook_SetPosition.
 // The game's Run, Jump and Sneak controls are off while photo mode is on (Shift would also switch
-// to walking, Space jump, Ctrl sneak). The mouse wheel zooms (dinput.cpp hands it over and keeps
+// to walking, Space jump, Ctrl sneak), and so is the Pip-Boy's (opening it ended photo mode). The mouse wheel zooms (dinput.cpp hands it over and keeps
 // it from the game, fov.cpp applies PhotoZoomFov).
 // The shortcut again ends it and puts the player back where photo mode started: there it leaves
 // a marker (PlaceAtMe XMarkerHeading), and the player is moved to it (MoveTo) a moment after the
 // collision is back on (a move while flying is lost). The pause menu (Esc) pauses it: it carries on
 // where it was when the menu closes (the HUD shown while the menu is open, so the menu shows).
-// Opening another menu (the Pip-Boy), loading a game, the main menu and quitting end it. No game
+// Opening another menu (the Pip-Boy key is off), loading a game, the main menu and quitting end it. No game
 // is saved while it is on (Hook_SaveGame: the pause menu's Save, Quicksave, autosaves, the console):
 // a save would keep the invisible player in mid-air.
 // Everything is put back as it was: each toggle is toggled back only if photo mode toggled it
 // (and the state is tracked, so an early end never toggles one twice), Quicksave and Run are
-// (and Jump and Sneak) enabled only if they were, the speed scale goes back to 1, the marker is
+// (and Jump, Sneak and the Pip-Boy) enabled only if they were, the speed scale goes back to 1, the marker is
 // deleted.
 // Starts only in gameplay; the console commands run on the game thread.
 #include <windows.h>
@@ -42,7 +42,7 @@ static bool s_drawPending, s_povPending;
 static const DWORD kWeaponDelayMs = 400;
 static DWORD s_holsterAt, s_drawAt;  // when to holster (photo mode on) / draw again (off); 0: not pending
 static bool s_noclip, s_hudHidden, s_aiStopped, s_povSwitched, s_undetected, s_invisible, s_quicksaveOff, s_runOff, s_jumpOff,
-    s_sneakOff;
+    s_sneakOff, s_pipboyOff;
 static float s_startX, s_startY, s_startZ;  // where the player was when photo mode started
 static float s_startRot;                    // their heading (degrees)
 static DWORD s_startWorld;                  // their worldspace (0: an interior)
@@ -364,6 +364,8 @@ static void Enter()
     if (s_jumpOff) GameConsole("DisableControl 12");
     s_sneakOff = ScriptValue("IsControlDisabled 8") == 0;  // 8: Sneak (Ctrl flies down)
     if (s_sneakOff) GameConsole("DisableControl 8");
+    s_pipboyOff = ScriptValue("IsControlDisabled 14") == 0;  // 14: the Pip-Boy (it would end photo mode)
+    if (s_pipboyOff) GameConsole("DisableControl 14");
     Log("photo: on%s at %.0f %.0f %.0f (worldspace %08lX, marker %p; people %s, HUD %s, Quicksave %s, Shift x%d%s%s)", resume ? " again" : "", s_startX, s_startY,
         s_startZ, s_startWorld, s_marker, s_aiStopped ? "stopped" : "moving", s_hudHidden ? "hidden" : "shown",
         s_quicksaveOff ? "turned off" : "was off", g_settings.photoFast, s_holsterAt ? ", weapon to holster" : s_holstered ? ", weapon holstered" : "",
@@ -405,7 +407,9 @@ void PhotoExit(const char* why)
     if (s_runOff) GameConsole("EnableControl 9");
     if (s_jumpOff) GameConsole("EnableControl 12");
     if (s_sneakOff) GameConsole("EnableControl 8");
-    s_povSwitched = s_invisible = s_undetected = s_hudHidden = s_aiStopped = s_quicksaveOff = s_runOff = s_jumpOff = s_sneakOff = false;
+    if (s_pipboyOff) GameConsole("EnableControl 14");
+    s_povSwitched = s_invisible = s_undetected = s_hudHidden = s_aiStopped = s_quicksaveOff = s_runOff = s_jumpOff = s_sneakOff =
+        s_pipboyOff = false;
     if (back) {  // (else there is nothing to move back)
         s_backAt = GetTickCount() + 150;
         s_backTries = 0;
