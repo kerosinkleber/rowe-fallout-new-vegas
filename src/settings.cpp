@@ -52,6 +52,7 @@
 //   msaa=0           the game's antialiasing (iMultiSample: 0, 2, 4, 8) for comparisons; -1 or absent
 //                    leaves it alone (FalloutPrefs.ini keeps its value)
 //   vatsshrink=0     VATS's image-space textures at the game's (supersampled) size, for comparison
+//   photomarker=0    photo mode leaves no start marker (moves the player back by position: unreliable)
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -187,6 +188,7 @@ void SettingsLoad()
     s.devFullscreen = GetPrivateProfileIntA("dev", "fullscreen", -1, path);
     s.devMsaa = GetPrivateProfileIntA("dev", "msaa", -1, path);
     s.devVatsShrink = GetPrivateProfileIntA("dev", "vatsshrink", 1, path) != 0;
+    s.devPhotoMarker = GetPrivateProfileIntA("dev", "photomarker", 1, path) != 0;
     char size[32] = "";
     GetPrivateProfileStringA("dev", "size", "", size, sizeof(size), path);
     if (size[0] && sscanf(size, "%dx%d", &s.devWidth, &s.devHeight) == 2 && s.devWidth >= 320 && s.devHeight >= 240) {

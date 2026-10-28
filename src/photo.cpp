@@ -42,9 +42,11 @@ static bool s_drawPending, s_povPending;
 static const DWORD kWeaponDelayMs = 400;
 static DWORD s_holsterAt, s_drawAt;  // when to holster (photo mode on) / draw again (off); 0: not pending
 static bool s_noclip, s_hudHidden, s_aiStopped, s_povSwitched, s_undetected, s_invisible;
-// The game's controls that are off while photo mode is on (DisableControl), each enabled again at
-// the end only if photo mode turned it off.
-static const struct { int control; const char* why; } kControlsOff[] = {
+// The game's controls that are off while photo mode is on (DisableControl), and the keys photo mode
+// flies with, hidden from the game and from script mods (DisableKey: a sprint mod sprinted on Shift
+// and its first-person sprint animation shook the camera; photo mode reads them from Windows), each
+// enabled again at the end only if photo mode turned it off.
+static const struct { int control; const char* why; bool key; } kControlsOff[] = {
     {25, "Quicksave"},
     {9, "Run (Shift would also switch to walking)"},
     {12, "Jump (Space flies up)"},
@@ -56,6 +58,8 @@ static const struct { int control; const char* why; } kControlsOff[] = {
     {16, "VATS"},
     {17, "Hotkey 1 (it equips a weapon)"}, {18, "Ammo swap"}, {19, "Hotkey 3"}, {20, "Hotkey 4"},
     {21, "Hotkey 5"}, {22, "Hotkey 6"}, {23, "Hotkey 7"}, {24, "Hotkey 8"},
+    {42, "Left Shift key (faster)", true}, {54, "Right Shift key", true}, {57, "Space key (up)", true},
+    {29, "Left Ctrl key (down)", true}, {157, "Right Ctrl key", true},
 };
 static const int kControlsOffCount = sizeof(kControlsOff) / sizeof(kControlsOff[0]);
 static bool s_controlOff[kControlsOffCount];  // photo mode turned it off
@@ -359,6 +363,33 @@ static void MovePlayer(float x, float y, float z, float heading, DWORD world)
     }
 }
 
+// Photo mode starts kStartDelayFrames after its start marker is placed, never in the same frame: in
+// the user's MO2 list (TTW) placing it in the frame photo mode started crashed the game 3 times in
+// about 5 starts (a background thread walking nearby creatures' 3D, the new marker's address in a
+// register), while placing it alone or photo mode without it did not crash (8 tries each).
+static const DWORD kStartDelayFrames = 10;
+static DWORD s_startAt;  // the frame photo mode starts at (its marker placed); 0: no start pending
+static void Enter();
+
+// Remembers where photo mode starts and places the marker there; Enter follows a few frames later.
+static void Prepare()
+{
+    if (s_active || s_startAt || !InGameplay()) return;
+    if (s_backAt) {  // started again before the player was moved back: the same start and marker
+        Enter();
+        return;
+    }
+    if (!PlayerPos(&s_startX, &s_startY, &s_startZ)) s_startX = s_startY = s_startZ = 0;
+    BYTE* pl = *(BYTE**)0x011DEA3C;
+    s_startRot = pl ? *(float*)(pl + 0x2C) * 57.29578f : 0.f;
+    s_startWorld = WorldspaceId();
+    // An XMarkerHeading (0x34 in FalloutNV.esm) by its ID: editor IDs are not kept at runtime.
+    s_marker = g_settings.devPhotoMarker ? ScriptRef("let rBase := BuildRef 0 52\nlet rOut := player.PlaceAtMe rBase 1") : nullptr;
+    s_startAt = FrameCount() + kStartDelayFrames;
+    Log("photo: start marker %p placed at %.0f %.0f %.0f, photo mode starts in %lu frames", s_marker, s_startX, s_startY, s_startZ,
+        kStartDelayFrames);
+}
+
 static void Enter()
 {
     if (s_active || !InGameplay()) return;
@@ -369,14 +400,6 @@ static void Enter()
     // marker), and what was still to be put back is put back at its end.
     bool resume = s_backAt != 0;
     s_backAt = 0;
-    if (!resume) {
-        if (!PlayerPos(&s_startX, &s_startY, &s_startZ)) s_startX = s_startY = s_startZ = 0;
-        BYTE* pl = *(BYTE**)0x011DEA3C;
-        s_startRot = pl ? *(float*)(pl + 0x2C) * 57.29578f : 0.f;
-        s_startWorld = WorldspaceId();
-        // An XMarkerHeading (0x34 in FalloutNV.esm) by its ID: editor IDs are not kept at runtime.
-        s_marker = ScriptRef("let rBase := BuildRef 0 52\nlet rOut := player.PlaceAtMe rBase 1");
-    }
     SetNoclip(true);
     GameConsole("player.SetActorAlpha 0");
     s_invisible = true;
@@ -398,14 +421,15 @@ static void Enter()
     int turnedOff = 0;
     for (int i = 0; i < kControlsOffCount; ++i) {
         char line[48];
-        wsprintfA(line, "IsControlDisabled %d", kControlsOff[i].control);
+        const char* what = kControlsOff[i].key ? "Key" : "Control";
+        wsprintfA(line, "Is%sDisabled %d", what, kControlsOff[i].control);
         s_controlOff[i] = ScriptValue(line) == 0;
         if (!s_controlOff[i]) continue;
-        wsprintfA(line, "DisableControl %d", kControlsOff[i].control);
+        wsprintfA(line, "Disable%s %d", what, kControlsOff[i].control);
         GameConsole(line);
         ++turnedOff;
     }
-    Log("photo: on%s at %.0f %.0f %.0f (worldspace %08lX, marker %p; people %s, HUD %s, %d of %d controls turned off, Shift x%d%s%s)",
+    Log("photo: on%s at %.0f %.0f %.0f (worldspace %08lX, marker %p; people %s, HUD %s, %d of %d controls and keys turned off, Shift x%d%s%s)",
         resume ? " again" : "", s_startX, s_startY, s_startZ, s_startWorld, s_marker, s_aiStopped ? "stopped" : "moving",
         s_hudHidden ? "hidden" : "shown", turnedOff, kControlsOffCount, g_settings.photoFast, s_holsterAt ? ", weapon to holster" : s_holstered ? ", weapon holstered" : "",
         s_setPosition ? "" : ", SetPosition detour missing: no Shift, Space, Ctrl");
@@ -415,7 +439,8 @@ void PhotoExit(const char* why)
 {
     if (!s_active) {
         if (s_backAt) Log("photo: not moved back (%s)", why);
-        s_backAt = 0;
+        if (s_startAt) Log("photo: not started (%s)", why);
+        s_backAt = s_startAt = 0;
         s_drawPending = s_povPending = false;
         s_drawAt = 0;
         s_marker = nullptr;  // gone with the game that is left
@@ -445,7 +470,7 @@ void PhotoExit(const char* why)
     for (int i = 0; i < kControlsOffCount; ++i) {
         if (!s_controlOff[i]) continue;
         char line[48];
-        wsprintfA(line, "EnableControl %d", kControlsOff[i].control);
+        wsprintfA(line, "Enable%s %d", kControlsOff[i].key ? "Key" : "Control", kControlsOff[i].control);
         GameConsole(line);
         s_controlOff[i] = false;
     }
@@ -462,7 +487,7 @@ void PhotoExit(const char* why)
 void PhotoToggle()
 {
     if (s_active) PhotoExit("toggled");
-    else Enter();
+    else Prepare();  // (a second press while a start is pending does nothing)
 }
 
 // Moves the player back to the marker (or, without one, to the start position), checks two seconds
@@ -470,7 +495,7 @@ void PhotoToggle()
 static void MoveBack()
 {
     float x, y, z;
-    bool there = PlayerPos(&x, &y, &z) && (x - s_startX) * (x - s_startX) + (y - s_startY) * (y - s_startY) < 200.f * 200.f;
+    bool there = PlayerPos(&x, &y, &z) && (x - s_startX) * (x - s_startX) + (y - s_startY) * (y - s_startY) < 64.f * 64.f;
     if (s_backTries > 0 && (there || s_backTries == 3)) {
         Log("photo: %s at %.0f %.0f %.0f (start %.0f %.0f %.0f)", there ? "back" : "NOT back", x, y, z, s_startX, s_startY, s_startZ);
         if (s_marker) ScriptWithRef("rArg.Disable\nrArg.MarkForDelete", s_marker);
@@ -501,12 +526,35 @@ static void PutBackPending()
 
 static bool Due(DWORD at) { return at && (int)(GetTickCount() - at) >= 0; }
 
+// The world camera's height over the player (world translate +0x8C), its range per state write.
+static float s_camLo = 1e9f, s_camHi = -1e9f;
+static void CameraRange()
+{
+    BYTE* sg = *(BYTE**)0x011DEB7C;
+    BYTE* cam = sg && !IsBadReadPtr(sg + 0xAC, 4) ? *(BYTE**)(sg + 0xAC) : nullptr;
+    float x, y, z;
+    if (!cam || IsBadReadPtr(cam + 0x8C, 12) || !PlayerPos(&x, &y, &z)) return;
+    float h = *(float*)(cam + 0x94) - z;
+    if (h < s_camLo) s_camLo = h;
+    if (h > s_camHi) s_camHi = h;
+}
+
 // Main loop (game thread).
 void PhotoTick()
 {
+    CameraRange();
     bool down = GameInFront() && !OverlayOpen() && ShortcutDown(g_settings.photoKey);
     if (down && !s_keyDown) PhotoToggle();
     s_keyDown = down;
+    if (s_startAt && (int)(FrameCount() - s_startAt) >= 0) {
+        s_startAt = 0;
+        if (InGameplay()) Enter();
+        else {  // a menu opened meanwhile: no photo mode, the marker removed again
+            Log("photo: not started (left gameplay)");
+            if (s_marker) ScriptWithRef("rArg.Disable\nrArg.MarkForDelete", s_marker);
+            s_marker = nullptr;
+        }
+    }
     if (!s_active && (s_povPending || s_drawPending) && InGameplay()) PutBackPending();
     if (!s_active && Due(s_drawAt) && InGameplay()) {
         s_drawAt = 0;
@@ -590,4 +638,13 @@ void PhotoWriteState(FILE* f)
     fprintf(f, "photo: zoom %.3f (target %.3f), fov %.1f -> %.1f\n", s_zoom, s_zoomTarget, s_zoomShown, s_zoomFov);
     fprintf(f, "photo: paused %d (HUD shown for the menu %d), saves refused %lu (SaveGame detour %s)\n", s_paused, s_hudRehide, s_savesRefused,
             s_saveGame ? "installed" : "MISSING");
+    // Shift as the game and script mods see it, and how far the camera moved against the player
+    // since the last state (a sprint animation shakes it).
+    bool game = *(void**)0x011DEA3C != nullptr;
+    fprintf(f, "photo: camera height over the player %.1f..%.1f since the last state; Shift held %d (seen by the game %d), keys turned off:",
+            s_camLo, s_camHi, (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0, game ? (int)ScriptValue("IsKeyPressed 42") : 0);
+    s_camLo = 1e9f, s_camHi = -1e9f;
+    for (int i = 0; i < kControlsOffCount; ++i)
+        if (kControlsOff[i].key && s_controlOff[i]) fprintf(f, " %d", kControlsOff[i].control);
+    fprintf(f, "\n");
 }

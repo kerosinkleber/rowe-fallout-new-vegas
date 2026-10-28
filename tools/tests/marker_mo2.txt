@@ -1,0 +1,25 @@
+# Crash hunt (the user's MO2 setup, at the quicksave): photo mode's start marker alone, without
+# photo mode: PlaceAtMe XMarkerHeading (0x34) three times, a few seconds apart, then the player walks
+# a little (W held through xNVSE). A crash here points at the marker. Saves nothing.
+log marker: boot
+waitmenu 1013 3600
+wait 60
+con load "quicksave"
+waitgameplay 3600
+wait 120
+log marker: place 1
+con player.PlaceAtMe 00000034 1
+wait 180
+log marker: place 2
+con player.PlaceAtMe 00000034 1
+wait 180
+log marker: place 3
+con player.PlaceAtMe 00000034 1
+wait 180
+log marker: walk
+keydown w
+wait 180
+keyup w
+wait 180
+log marker: done
+con qqq

@@ -7,6 +7,9 @@
 //                    keydown / keyup <key> hold / release it (xNVSE HoldKey / ReleaseKey)
 //                    wait <frames>         pause the queue for that many presented frames
 //                    waitgameplay [frames] pause until gameplay (no menu, not loading), or the timeout
+//                    gameplay [frames]     the same, and clears what is in the way, logged: a message box
+//                                          (1001) with CloseAllMenus, the pause menu (1013) with Esc, only
+//                                          after a loading screen closed (never the main menu)
 //                    waitfocus [frames]    pause until the game window is in front (input needs it)
 //                    waitnomenu <id> [frames]  pause until that menu is closed (1007 = loading screen)
 //                    waitmenu <id> [frames]    pause until that menu is open (1013 = main/pause menu)
@@ -33,7 +36,9 @@
 //                    nodes <name> <depth>  log the interface scene below that node ("-": the root)
 //                  <key> is a name (a-z, 0-9, f1-f12, tab, esc, enter, space, lalt, lshift, lctrl,
 //                  lmb, rmb, mmb, up, down, left, right) or a DirectInput code (decimal; mouse 256+).
-//  The queue state (pending lines, current wait, last command) is in rowe_state.txt.
+//  The queue state (pending lines, current wait, last command) is in rowe_state.txt. A command that
+//  needs gameplay (photo, key, keydown, wheel) run while a menu or popup is open logs a WARNING with
+//  the menus shown, as does a wait that times out, so a test that went astray says so.
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,6 +56,10 @@ static char s_queue[256][512];
 static int s_head, s_count;
 static int s_waitFrames;
 static bool s_waitGameplay, s_waitFocus;
+static bool s_clearMenus;    // gameplay: closes a message box, Esc on the pause menu
+static DWORD s_clearedFrame; // when it last closed one
+static bool s_loading;       // the loading screen (1007) was shown last tick
+static DWORD s_loadedFrame;  // when the last loading screen closed (0: none yet, or one is shown)
 static int s_waitNoMenu;  // menu id to wait for to close
 static int s_waitMenu;    // menu id to wait for to open
 static char s_last[600];
@@ -128,6 +137,28 @@ static bool HasFocus()
     return pid == GetCurrentProcessId();
 }
 
+static bool MenuShown(int id) { return ((BYTE*)0x011F308F)[id] != 0; }
+
+// The menus shown besides the HUD (1004) and its parts (1086 and up): "1001 1013", or "none".
+static void ShownMenus(char* out, int size)
+{
+    int n = 0;
+    out[0] = 0;
+    for (int id = 1001; id < 1086 && n < size - 8; ++id)
+        if (id != 1004 && MenuShown(id)) n += wsprintfA(out + n, n ? " %d" : "%d", id);
+    if (!n) lstrcpynA(out, "none", size);
+}
+
+// A command that needs gameplay, run outside it with a game loaded: says so (and what is shown).
+static void CheckGameplay(const char* cmd)
+{
+    if (InGameplay() || !RestartGameLoaded()) return;
+    char menus[96];
+    ShownMenus(menus, sizeof(menus));
+    Log("cmd: WARNING: '%s' outside gameplay (menus shown: %s; 1001 message box, 1013 pause menu; window in front %d)", cmd, menus,
+        HasFocus());
+}
+
 static void Run(char* cmd);
 
 static void SetCommand(char* arg)
@@ -160,13 +191,16 @@ static void Run(char* cmd)
         *arg++ = 0;
         while (*arg == ' ') ++arg;
     }
+    if (!lstrcmpiA(cmd, "photo") || !lstrcmpiA(cmd, "key") || !lstrcmpiA(cmd, "keydown") || !lstrcmpiA(cmd, "wheel")) CheckGameplay(s_last);
     if (lstrcmpiA(cmd, "con") == 0 && arg) RunConsole(arg);
     else if (lstrcmpiA(cmd, "key") == 0 && arg) Key("TapKey", arg);
     else if (lstrcmpiA(cmd, "keydown") == 0 && arg) Key("HoldKey", arg);
     else if (lstrcmpiA(cmd, "keyup") == 0 && arg) Key("ReleaseKey", arg);
     else if (lstrcmpiA(cmd, "wait") == 0 && arg) s_waitFrames = atoi(arg);
-    else if (lstrcmpiA(cmd, "waitgameplay") == 0) {
+    else if (lstrcmpiA(cmd, "waitgameplay") == 0 || lstrcmpiA(cmd, "gameplay") == 0) {
         s_waitGameplay = true;
+        s_clearMenus = lstrcmpiA(cmd, "gameplay") == 0;
+        s_clearedFrame = FrameCount();
         s_waitFrames = arg ? atoi(arg) : 3600;
     }
     else if (lstrcmpiA(cmd, "waitmenu") == 0 && arg) {
@@ -274,6 +308,16 @@ static void ReadFile()
 void GameCmdTick()
 {
     ++s_loops;
+    // A game is loaded once a loading screen has closed; before the first one 1013 is the main menu.
+    bool loading = MenuShown(1007);
+    if (loading) s_loadedFrame = 0;
+    else if (s_loading) s_loadedFrame = FrameCount() | 1;
+    s_loading = loading;
+    // A message box that opens while a test runs, said once (it stops the input the test sends).
+    static bool boxSeen;
+    bool box = MenuShown(1001) && (s_count > 0 || s_waitFrames > 0);
+    if (box && !boxSeen) Log("cmd: WARNING: a message box (1001) opened while the queue runs (last command '%s')", s_last);
+    boxSeen = box;
     for (int i = 0; i < s_nowCount; ++i) Run(s_now[i]);
     s_nowCount = 0;
     if (s_loops % 10 == 0) ReadFile();
@@ -296,14 +340,34 @@ void GameCmdTick()
                 Log("cmd: game window is in front");
                 s_waitFrames = 0;
             } else {
+                // gameplay: what is in the way is closed, at most every 30 frames, half a second after a
+                // loading screen closed at the earliest (before the first load 1013 is the main menu,
+                // where Esc asks to quit; after one the user's list shows the pause menu). A message box
+                // (TTW's after loading the user's list; Enter does not close it) with CloseAllMenus, the
+                // pause menu with Esc.
+                if (s_waitGameplay && s_clearMenus && s_loadedFrame && now - s_loadedFrame >= 30 && now - s_clearedFrame >= 30) {
+                    if (MenuShown(1001)) {
+                        s_clearedFrame = now;
+                        Log("cmd: gameplay: a message box (1001) is open, closing it (CloseAllMenus)");
+                        RunConsole("CloseAllMenus");
+                    } else if (MenuShown(1013)) {
+                        s_clearedFrame = now;
+                        Log("cmd: gameplay: the pause menu (1013) is open, pressing Esc");
+                        RunConsole("TapKey 1");
+                    }
+                }
                 s_waitFrames = (int)step >= s_waitFrames ? 0 : s_waitFrames - (int)step;
-                if (!s_waitFrames && (s_waitGameplay || s_waitFocus || s_waitNoMenu || s_waitMenu))
-                    Log("cmd: %s timed out", s_waitGameplay ? "waitgameplay" : s_waitFocus ? "waitfocus" : s_waitMenu ? "waitmenu" : "waitnomenu");
+                if (!s_waitFrames && (s_waitGameplay || s_waitFocus || s_waitNoMenu || s_waitMenu)) {
+                    char menus[96];
+                    ShownMenus(menus, sizeof(menus));
+                    Log("cmd: WARNING: %s timed out (menus shown: %s; window in front %d)",
+                        s_waitGameplay ? "waitgameplay" : s_waitFocus ? "waitfocus" : s_waitMenu ? "waitmenu" : "waitnomenu", menus, HasFocus());
+                }
             }
         }
         if (s_waitFrames > 0) return;
     }
-    s_waitGameplay = s_waitFocus = false;
+    s_waitGameplay = s_waitFocus = s_clearMenus = false;
     s_waitNoMenu = s_waitMenu = 0;
     if (!s_count) return;
     char cmd[512];

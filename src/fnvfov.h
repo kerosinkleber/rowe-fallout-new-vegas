@@ -84,6 +84,7 @@ struct Settings {
     int devFullscreen = -1;  // [dev] fullscreen: -1 = the game's own bFull Screen
     int devWidth = 0, devHeight = 0;  // [dev] size: window size for this start, 0 = the game's own
     int devMsaa = -1;  // [dev] msaa: the game's iMultiSample for this start (0, 2, 4, 8), -1 = the game's own
+    bool devPhotoMarker = true;  // [dev] photomarker=0: photo mode leaves no marker (moves back by position)
     bool devVatsShrink = true;  // [dev] vatsshrink=0: VATS image space at the game's size (comparison)
 };
 extern Settings g_settings;

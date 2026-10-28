@@ -1,0 +1,99 @@
+# The user's MO2 setup, at the quicksave: in photo mode the real Left Shift (held by the runner from
+# "shift down" to "shift up", W through xNVSE) must not reach the game or JAM's sprint (the shot's
+# state: "seen by the game 0") while photo mode flies faster; then four rounds of sprinting and
+# photo mode right after (the crash hunt). Saves nothing.
+log sprintblock: boot
+waitmenu 1013 3600
+wait 60
+con load "quicksave"
+gameplay 3600
+wait 120
+photo
+wait 60
+keydown w
+wait 20
+log sprintblock: shift down
+wait 90
+log sprintblock: shift held in photo mode
+shot
+log sprintblock: shift up
+wait 20
+keyup w
+wait 30
+photo
+wait 240
+gameplay 300
+log sprintblock: shift outside photo mode
+keydown w
+wait 20
+log sprintblock: shift down
+wait 90
+shot
+log sprintblock: shift up
+wait 20
+keyup w
+wait 120
+gameplay 300
+photo
+wait 120
+keydown w
+wait 60
+keyup w
+photo
+wait 240
+gameplay 300
+log sprintblock: round 2
+keydown w
+wait 20
+log sprintblock: shift down
+wait 120
+log sprintblock: shift up
+wait 20
+keyup w
+wait 120
+gameplay 300
+photo
+wait 120
+keydown w
+wait 60
+keyup w
+photo
+wait 240
+gameplay 300
+log sprintblock: round 3
+keydown w
+wait 20
+log sprintblock: shift down
+wait 120
+log sprintblock: shift up
+wait 20
+keyup w
+wait 120
+gameplay 300
+photo
+wait 120
+keydown w
+wait 60
+keyup w
+photo
+wait 240
+gameplay 300
+log sprintblock: round 4
+keydown w
+wait 20
+log sprintblock: shift down
+wait 120
+log sprintblock: shift up
+wait 20
+keyup w
+wait 120
+gameplay 300
+photo
+wait 120
+keydown w
+wait 60
+keyup w
+photo
+wait 240
+log sprintblock: done
+con qqq
