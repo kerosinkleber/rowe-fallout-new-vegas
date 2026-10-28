@@ -14,8 +14,10 @@
 // (dinput.cpp hands it over and keeps it from the game, fov.cpp applies PhotoZoomFov).
 // The shortcut again ends it and puts the player back where photo mode started: there it leaves
 // a marker (PlaceAtMe XMarkerHeading), and the player is moved to it (MoveTo) a moment after the
-// collision is back on (a move while flying is lost). The pause menu (Esc) pauses it: it carries on
-// where it was when the menu closes (the HUD shown while the menu is open, so the menu shows).
+// collision is back on (a move while flying is lost). The pause menu (Esc) pauses it, with the
+// controls photo mode turned off given back meanwhile (the menu takes clicks), and so do the menus
+// opened from it: it carries on where it was when the game is back in gameplay (the HUD shown while
+// paused, so the menu shows).
 // Opening another menu (the Pip-Boy key is off), loading a game, the main menu and quitting end it. No game
 // is saved while it is on (Hook_SaveGame: the pause menu's Save, Quicksave, autosaves, the console):
 // a save would keep the invisible player in mid-air.
@@ -564,13 +566,15 @@ void PhotoTick()
     }
     if (s_backAt && (int)(GetTickCount() - s_backAt) >= 0 && InGameplay()) MoveBack();
     if (!s_active) return;
-    // The pause menu pauses photo mode (any other menu ends it). Photo mode's hidden HUD would
+    // The pause menu pauses photo mode, and so does any menu opened from it (the confirmation box of
+    // its Continue / Load, Settings, Help) until the game is back in gameplay; any other menu ends
+    // it. Photo mode's hidden HUD would
     // hide the pause menu too: it is shown while the menu is open. The game is in menu mode a few
     // frames before the pause menu shows as visible, so a menu is only told apart after up to
     // kMenuWaitMs (frozen meanwhile).
     static const DWORD kMenuWaitMs = 500;
     bool menu = MenuOpen();
-    bool paused = menu && ((BYTE*)0x011F308F)[1013];  // the visible-menu table, 1013 = StartMenu
+    bool paused = menu && (((BYTE*)0x011F308F)[1013] || s_paused);  // the visible-menu table, 1013 = StartMenu
     if (menu && !paused) {
         if (!s_menuSince) s_menuSince = GetTickCount();
         if (GetTickCount() - s_menuSince >= kMenuWaitMs) {
@@ -595,7 +599,16 @@ void PhotoTick()
             s_hudHidden = true;
             s_hudRehide = false;
         }
-        Log("photo: %s", paused ? "paused (pause menu)" : "resumed");
+        // The controls and keys photo mode turned off go back to the game while the pause menu is
+        // open: DisableControl 4 (Attack) also kept the left mouse button from the menu, which then
+        // opened but took no clicks.
+        for (int i = 0; i < kControlsOffCount; ++i) {
+            if (!s_controlOff[i]) continue;
+            char line[48];
+            wsprintfA(line, "%s%s %d", paused ? "Enable" : "Disable", kControlsOff[i].key ? "Key" : "Control", kControlsOff[i].control);
+            GameConsole(line);
+        }
+        Log("photo: %s", paused ? "paused (pause menu; controls back to the game)" : "resumed");
     }
     if (paused) {
         s_speedScale = 1.f;
@@ -636,7 +649,8 @@ void PhotoWriteState(FILE* f)
             body, body ? *(DWORD*)(body + 0x30) : 0, arms, arms ? *(DWORD*)(arms + 0x30) : 0, s_bodyHidden, s_drawSites, s_drawCalls,
             *(BYTE**)0x011DEA3C ? !*(*(BYTE**)0x011DEA3C + 0x64A) : 0, *(void**)0x011DEA3C ? PlayerWeaponOut() : 0, s_holstered);
     fprintf(f, "photo: zoom %.3f (target %.3f), fov %.1f -> %.1f\n", s_zoom, s_zoomTarget, s_zoomShown, s_zoomFov);
-    fprintf(f, "photo: paused %d (HUD shown for the menu %d), saves refused %lu (SaveGame detour %s)\n", s_paused, s_hudRehide, s_savesRefused,
+    fprintf(f, "photo: paused %d (HUD shown for the menu %d; Attack control, the left mouse button, disabled %d), saves refused %lu (SaveGame detour %s)\n",
+            s_paused, s_hudRehide, *(void**)0x011DEA3C ? (int)ScriptValue("IsControlDisabled 4") : 0, s_savesRefused,
             s_saveGame ? "installed" : "MISSING");
     // Shift as the game and script mods see it, and how far the camera moved against the player
     // since the last state (a sprint animation shakes it).

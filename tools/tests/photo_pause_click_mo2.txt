@@ -1,0 +1,34 @@
+# Photo mode and the pause menu with the mouse (the user's MO2 setup, at the quicksave; saves
+# nothing): photo mode on, the real Esc opens the pause menu (photo mode paused, its controls back to
+# the game: "Attack control ... disabled 0" in the shot's state). The Windows cursor hovers Settings
+# (1760 757 in the user's 1920x1440 window) and xNVSE clicks the left button: the settings page opens
+# and photo mode stays paused. The real Esc twice goes back to the game: photo mode resumes.
+log pauseclick: boot
+waitmenu 1013 3600
+wait 60
+con load "quicksave"
+gameplay 3600
+wait 120
+photo
+wait 120
+log pauseclick: realkey 01
+wait 90
+log pauseclick: pause menu
+shot
+wincursor 1760 757
+wait 30
+log pauseclick: click Settings (xNVSE left button)
+key lmb
+wait 90
+log pauseclick: after the click
+shot
+log pauseclick: realkey 01
+wait 60
+log pauseclick: realkey 01
+wait 90
+log pauseclick: back in the game
+shot
+photo
+wait 240
+log pauseclick: done
+con qqq
