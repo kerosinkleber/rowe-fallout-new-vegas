@@ -12,7 +12,12 @@
 //
 // The stats window (stats=1) is drawn by the same ImGui frame, with the menu closed too; it only
 // takes the mouse (to be dragged) while the menu is open. It is also drawn into the key's
-// screenshots (the menu is not), scaled to their size.
+// screenshots (the menu is not), scaled to their size. In photo mode two more windows show (never
+// in screenshots: the overlay draws after the shot is copied): the view (FOV, zoomed FOV, lens) at
+// the top left, and the keys with the photo mode warning at the bottom.
+//
+// The lens key (lenskey) switches to the next lens, the stats key (statskey) shows or hides the stats
+// window; both are read with GetAsyncKeyState like the menu key.
 #include <windows.h>
 #include <shellapi.h>
 #include <math.h>
@@ -27,6 +32,7 @@
 #include "backends/imgui_impl_win32.h"
 #include "sharetechmono_ttf.h"
 #include "hudstyle.h"
+#include "photowarning.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -35,6 +41,7 @@ static HWND s_window;
 static int s_capturingKey;     // 1: the next key pressed becomes *s_captureInto (the screenshot or menu key)
 static int* s_captureInto;
 static bool s_menuKeyDown;     // the menu key was down last frame (it toggles on the press)
+static bool s_lensKeyDown, s_statsKeyDown;  // the same for the lens and stats keys
 static char s_dirEdit[MAX_PATH];
 static bool s_dirEditing;
 static char s_wantTab[16];     // test command "overlay tab <name>": the tab to select next frame
@@ -145,6 +152,18 @@ static void LabelCell(const char* label, const char* tip)
     HudTip(tip);
     ImGui::TableNextColumn();
     ImGui::SetNextItemWidth(-FLT_MIN);
+}
+
+// A key setting: a button showing the key; click it, then press the key (CaptureKey).
+static void KeyRow(const char* label, const char* tip, int* key, const char* id)
+{
+    LabelCell(label, tip);
+    char name[32], btn[64];
+    KeyName(*key, name, sizeof(name));
+    bool capturing = s_capturingKey && s_captureInto == key;
+    _snprintf(btn, sizeof(btn), capturing ? "press a key...###%s" : "%s###%s", capturing ? id : name, id);
+    btn[sizeof(btn) - 1] = 0;
+    if (ImGui::Button(btn, ImVec2(-FLT_MIN, 0))) { s_capturingKey = 1; s_captureInto = key; }
 }
 
 static void FactorLabel(char* out, int size, float f, int nativeW, int nativeH)
@@ -352,17 +371,15 @@ static void DrawStats(float menuPx, int backW, int backH)
         ImGui::TextUnformatted("ROWE STATS");
         if (s_open) HudTip("Drag to move it (while this menu is open). Turn it off in Other, Stats.");
         if (ImGui::BeginTable("stats", 2, ImGuiTableFlags_SizingFixedFit)) {
-            static const char* kLensNames[kLensModeCount] = {"off", "auto", "Panini", "stereographic", "fisheye"};
-            float lensFov = 0, renderFov = 0, blend = 0;
+            float lensFov = 0, renderFov = 0;
             const char* skip = "";
-            if (LensStats(&lensFov, &renderFov, &blend, &skip)) {
-                if (g_settings.lens == kLensAuto) StatsRow("Lens", "auto: %d%% Panini", (int)(blend * 100 + 0.5f));
-                else if (g_settings.lens == kLensFisheye) StatsRow("Lens", "fisheye, %s", g_settings.fisheyeCircle ? "full circle" : "fill");
-                else StatsRow("Lens", "%s", kLensNames[g_settings.lens]);
+            if (LensStats(&lensFov, &renderFov, &skip)) {
+                if (g_settings.lens == kLensFisheye) StatsRow("Lens", "Fisheye, %s", g_settings.fisheyeCircle ? "full circle" : "fill");
+                else StatsRow("Lens", "%s", LensName(g_settings.lens));
                 StatsRow("Lens FOV", "%.0f deg across", lensFov);
                 StatsRow("Rendered", "%.0f deg across", renderFov);
             } else {
-                StatsRow("Lens", "%s", kLensNames[g_settings.lens]);
+                StatsRow("Lens", "%s", LensName(g_settings.lens));
                 if (skip && *skip && g_settings.lens != kLensOff) StatsRow("", "not warping: %s", skip);
             }
             if (g_settings.fov > 0) StatsRow("FOV", "%.0f (at 4:3)", g_settings.fov);
@@ -479,11 +496,14 @@ static void DrawMenu(int backW, int backH)
                                                                                                   : "the lens shows at most %d",
                                         lensFov);
                 }
-                static const char* kLens[kLensModeCount] = {"Off", "Auto", "Panini", "Stereographic", "Fisheye"};
+                static const char* kLens[kLensChoiceCount] = {"Off", "Panini", "Stereographic", "Fisheye"};  // kLensChoices
                 LabelCell("Lens", "How very wide views are drawn without stretched edges.\n"
-                                  "Auto: normal up to 90 degrees, then Panini. Panini: keeps vertical lines straight. "
-                                  "Stereographic: keeps shapes round. Fisheye: up to 160 degrees across, black corners.");
-                if (ImGui::Combo("##lens", &g_settings.lens, kLens, kLensModeCount)) Changed();
+                                  "Panini: keeps vertical lines straight. Stereographic: keeps shapes round. "
+                                  "Fisheye: up to 160 degrees across, black corners.");
+                int lensIndex = LensChoiceIndex(g_settings.lens);
+                if (ImGui::Combo("##lens", &lensIndex, kLens, kLensChoiceCount)) { g_settings.lens = kLensChoices[lensIndex]; Changed(); }
+                KeyRow("Lens key", "Switches to the next lens (off, Panini, stereographic, fisheye), also in photo mode. "
+                                   "Click, then press the key to use. Esc cancels.", &g_settings.lensKey, "lenskey");
                 if (g_settings.lens == kLensFisheye) {
                     LabelCell("Fisheye", "Fill: the picture fills the screen's width, the circle's edge is cut off at the sides.\n"
                                          "Full circle: at the widest FOV (160) everything that is rendered is shown, as a circle fitted to the "
@@ -657,11 +677,16 @@ static void DrawMenu(int backW, int backH)
             if (ImGui::BeginTable("photo", 2, tf)) {
                 ImGui::TableSetupColumn("l", ImGuiTableColumnFlags_WidthFixed, labelW);
                 ImGui::TableSetupColumn("v", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted("Warning");
+                ImGui::TableNextColumn();
+                ImGui::TextWrapped("%s", ROWE_PHOTO_WARNING);
                 LabelCell("Photo mode", "You fly, invisible, through walls, and nothing can detect you; the world loads as you go. "
                                         "Move with the movement keys where you look, Space flies up, Ctrl down, Shift faster, the mouse wheel "
                                         "zooms. The shortcut ends it "
-                                        "and puts you back where you started; opening a menu ends it too, and Quicksave is off "
-                                        "while it is on.");
+                                        "and puts you back where you started; opening a menu ends it too. Saving, the Pip-Boy and "
+                                        "your weapon are off while it is on.");
                 ImGui::BeginDisabled(!PhotoActive() && !InGameplay());
                 if (ImGui::Button(PhotoActive() ? "end###photogo" : "start###photogo")) {
                     PhotoToggle();
@@ -742,6 +767,8 @@ static void DrawMenu(int backW, int backH)
                 if (ImGui::Button("reset position")) { g_settings.statsX = g_settings.statsY = -1; s_statsLast = ImVec2(-1, -1); s_statsPlace = true; Changed(); }
                 ImGui::EndDisabled();
                 HudTip("Back to the top right corner.");
+                KeyRow("Stats key", "Shows and hides the stats window, also in photo mode. Click, then press the key to use. "
+                                    "Esc cancels.", &g_settings.statsKey, "statskey");
                 LabelCell("Stats text size", "The stats window's text size, in percent of this menu's.");
                 ImGui::BeginDisabled(!g_settings.stats);
                 HudSliderInt("##statssize", &g_settings.statsSize, 50, 200, "%d%%");
@@ -764,8 +791,8 @@ static void DrawMenu(int backW, int backH)
     ImGui::End();
 }
 
-// The screenshot, menu or photo key: the first key pressed after "press a key..." (Esc cancels; a
-// key the other two use is refused, so one key never does two things). The photo shortcut takes
+// The screenshot, menu, photo, lens or stats key: the first key pressed after "press a key..." (Esc
+// cancels; a key another of them uses is refused, so one key never does two things). The photo shortcut takes
 // Ctrl / Alt held with it.
 static void CaptureKey()
 {
@@ -783,10 +810,14 @@ static void CaptureKey()
         if (s_captureInto == &g_settings.photoKey) value |= ShortcutModifiersHeld();
         bool taken = (s_captureInto != &g_settings.menuKey && value == g_settings.menuKey) ||
                      (s_captureInto != &g_settings.screenshotKey && value == g_settings.screenshotKey) ||
-                     (s_captureInto != &g_settings.photoKey && value == g_settings.photoKey);
+                     (s_captureInto != &g_settings.photoKey && value == g_settings.photoKey) ||
+                     (s_captureInto != &g_settings.lensKey && value == g_settings.lensKey) ||
+                     (s_captureInto != &g_settings.statsKey && value == g_settings.statsKey);
         if (vk != VK_ESCAPE && !taken) {
             *s_captureInto = value;
             if (s_captureInto == &g_settings.menuKey) s_menuKeyDown = true;  // still held: not a press yet
+            if (s_captureInto == &g_settings.lensKey) s_lensKeyDown = true;
+            if (s_captureInto == &g_settings.statsKey) s_statsKeyDown = true;
             Changed();
         }
         s_capturingKey = 0;
@@ -844,6 +875,89 @@ static bool NoticeDue()
     return s_noticeUntil && (int)(s_noticeUntil - GetTickCount()) > 0;
 }
 
+void LensCycle()
+{
+    int next = kLensChoices[(LensChoiceIndex(g_settings.lens) + 1) % kLensChoiceCount];
+    g_settings.lens = next;
+    Changed();
+    char text[64];
+    wsprintfA(text, "Lens: %s", LensName(next));
+    OverlayNotice(text);
+    Log("overlay: lens key: %s", LensName(next));
+}
+
+// ---- photo mode windows ------------------------------------------------------------------------
+// Never in a screenshot (drawn after the shot is copied). Not while the pause menu pauses photo mode.
+
+static const ImGuiWindowFlags kHintFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs |
+                                           ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                                           ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNav;
+
+// Top left: the FOV, the FOV the wheel zoomed to, the lens.
+static void DrawPhotoView(float px)
+{
+    ImGui::SetNextWindowPos(ImVec2(floorf(px * 0.8f), floorf(px * 0.8f)), ImGuiCond_Always);
+    if (ImGui::Begin("##rowe photo view", nullptr, kHintFlags) && ImGui::BeginTable("photoview", 2, ImGuiTableFlags_SizingFixedFit)) {
+        float unzoomed = 0, zoomed = PhotoZoomedFov(&unzoomed);
+        StatsRow("FOV", "%.0f", unzoomed);
+        StatsRow("Zoom FOV", "%.0f", zoomed);
+        if (g_settings.lens == kLensFisheye) StatsRow("Lens", "Fisheye, %s", g_settings.fisheyeCircle ? "full circle" : "fill");
+        else StatsRow("Lens", "%s", LensName(g_settings.lens));
+        ImGui::EndTable();
+        HudWindowFrame();
+    }
+    ImGui::End();
+}
+
+// One key hint, boxed like a key.
+static void KeyHint(const char* text)
+{
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImVec2 pad(floorf(HudFontPx() * 0.4f), floorf(HudFontPx() * 0.15f));
+    ImVec2 sz = ImGui::CalcTextSize(text), p = ImGui::GetCursorScreenPos();
+    ImVec2 q(p.x + sz.x + pad.x * 2, p.y + sz.y + pad.y * 2);
+    dl->AddRect(p, q, HudCol(1.f, 0.8f), 0.f, 0, fmaxf(1.f, HudT() * 0.5f));
+    dl->AddText(ImVec2(p.x + pad.x, p.y + pad.y), HudCol(), text);
+    ImGui::Dummy(ImVec2(q.x - p.x, q.y - p.y));
+}
+
+// Bottom centre: the keys, and the warning below them.
+static void DrawPhotoKeys(float px, int backW, int backH)
+{
+    char menu[32], stats[32], lens[32], exitKey[48], t[5][80];
+    KeyName(g_settings.menuKey, menu, sizeof(menu));
+    KeyName(g_settings.statsKey, stats, sizeof(stats));
+    KeyName(g_settings.lensKey, lens, sizeof(lens));
+    ShortcutName(g_settings.photoKey, exitKey, sizeof(exitKey));
+    lstrcpyA(t[0], "Scroll to Zoom");
+    wsprintfA(t[1], "Mod Menu: %s", menu);
+    wsprintfA(t[2], "Stats: %s", stats);
+    wsprintfA(t[3], "Switch Lens: %s", lens);
+    wsprintfA(t[4], "Exit: %s", exitKey);
+    ImGui::SetNextWindowPos(ImVec2(backW * 0.5f, backH - floorf(px * 0.8f)), ImGuiCond_Always, ImVec2(0.5f, 1.f));
+    if (ImGui::Begin("##rowe photo keys", nullptr, kHintFlags)) {
+        for (int i = 0; i < 5; ++i) {
+            if (i) ImGui::SameLine(0, floorf(px * 0.6f));
+            KeyHint(t[i]);
+        }
+        ImGui::TextDisabled("%s", ROWE_PHOTO_WARNING);
+        HudWindowFrame();
+    }
+    ImGui::End();
+}
+
+static void DrawPhotoWindows(float px, int backW, int backH)
+{
+    float textPx = floorf(px * 0.8f + 0.5f), c[3];
+    MenuColor(c);
+    HudApplyStyle(textPx, c);
+    ImGui::PushFont(nullptr, textPx);
+    DrawPhotoView(textPx);
+    DrawPhotoKeys(textPx, backW, backH);
+    ImGui::PopFont();
+    HudApplyStyle(px, c);
+}
+
 static void DrawNotice(float px, int backW)
 {
     int left = (int)(s_noticeUntil - GetTickCount());
@@ -869,10 +983,22 @@ void OverlayPresent(IDirect3DDevice9* dev, IDirect3DSurface9* target)
     bool down = GameInFront() && (GetAsyncKeyState(g_settings.menuKey) & 0x8000) != 0;
     if (down && !s_menuKeyDown && !s_capturingKey) s_open = !s_open;
     s_menuKeyDown = down;
+    bool front = GameInFront();
+    down = front && (GetAsyncKeyState(g_settings.lensKey) & 0x8000) != 0;
+    if (down && !s_lensKeyDown && !s_capturingKey) LensCycle();
+    s_lensKeyDown = down;
+    down = front && (GetAsyncKeyState(g_settings.statsKey) & 0x8000) != 0;
+    if (down && !s_statsKeyDown && !s_capturingKey) {
+        g_settings.stats = !g_settings.stats;
+        Changed();
+        Log("overlay: stats key: stats window %s", g_settings.stats ? "shown" : "hidden");
+    }
+    s_statsKeyDown = down;
     if (s_startSkipIntros < 0) s_startSkipIntros = g_settings.skipIntros ? 1 : 0;
     if (!s_open) s_capturingKey = 0;
     bool notice = NoticeDue();
-    if ((!s_open && !g_settings.stats && !notice) || !target || s_failed) {
+    bool photo = PhotoFlying();
+    if ((!s_open && !g_settings.stats && !notice && !photo) || !target || s_failed) {
         if (s_dirty) { SettingsSave(); s_dirty = false; }
         return;
     }
@@ -895,6 +1021,7 @@ void OverlayPresent(IDirect3DDevice9* dev, IDirect3DSurface9* target)
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
     if (g_settings.stats) DrawStats(px, (int)d.Width, (int)d.Height);
+    if (photo) DrawPhotoWindows(px, (int)d.Width, (int)d.Height);
     if (s_open) DrawMenu((int)d.Width, (int)d.Height);
     if (notice) DrawNotice(px, (int)d.Width);
     ImGui::EndFrame();

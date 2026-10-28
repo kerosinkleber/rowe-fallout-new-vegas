@@ -36,7 +36,13 @@ bool PatchCallOver(DWORD siteVA, const BYTE* expected, int len, void* fn, const 
 void CrashLogInstall(HMODULE self);  // crashlog.cpp: logs access violations to rowe.log
 
 // settings.cpp: rowe.ini (see the file header for the keys).
-enum { kLensOff = 0, kLensAuto = 1, kLensPanini = 2, kLensStereographic = 3, kLensFisheye = 4, kLensModeCount = 5 };
+// (1 was "auto": rowe.ini's lens=1 reads as Panini.) kLensChoices: the modes in the order menus list them.
+enum { kLensOff = 0, kLensPanini = 2, kLensStereographic = 3, kLensFisheye = 4, kLensModeCount = 5 };
+static const int kLensChoices[] = {kLensOff, kLensPanini, kLensStereographic, kLensFisheye};
+static const int kLensChoiceCount = 4;
+int LensChoiceIndex(int lens);    // settings.cpp: lens -> its index in kLensChoices
+const char* LensName(int lens);   // "Off", "Panini", "Stereographic", "Fisheye"
+void LensCycle();                 // the next lens (the lens key), with a notice
 enum { kMouseTrapOff = 0, kMouseTrapGameplay = 1, kMouseTrapAlways = 2, kMouseTrapModeCount = 3 };
 static const float kFovMin = 60.f, kFovMax = 160.f;
 static const float kPipboyFovMin = 20.f, kPipboyFovMax = 90.f;
@@ -44,7 +50,7 @@ static const float kZoomFovMin = 10.f;
 static const int kPixelSizeMax = 8;
 struct Settings {
     float fov = 0;           // 0 = game default
-    int lens = kLensAuto;
+    int lens = kLensPanini;
     float pipboyFov = 0;     // 0 = game default (fPipboy1stPersonFOV)
     float zoomFov = 0;       // zoom without a weapon drawn; 0 = game default (fIronSightsZoomDefault)
     float supersample = 1;   // pixel-count multiplier; applies at the next start
@@ -57,6 +63,8 @@ struct Settings {
     char screenshotDir[MAX_PATH] = "";  // screenshot folder; empty = next to the DLL
     int screenshotKey = VK_F12;          // virtual key of the screenshot key
     int menuKey = VK_F8;                 // virtual key that opens and closes the settings menu
+    int lensKey = VK_F7;                 // virtual key that switches to the next lens
+    int statsKey = VK_F11;               // virtual key that shows and hides the stats window
     bool screenshotFull = true;          // at the supersampled size (false: the window's)
     bool screenshotJpg = true;           // JPEG (false: PNG)
     int screenshotQuality = 95;          // JPEG quality 1-100
@@ -142,8 +150,8 @@ void LensLost();
 void LensPreUIRetarget(IDirect3DDevice9* dev);  // the Pip-Boy's pre-UI copy again, from the render target now bound
 float LensEffectiveFov();                  // lens FOV in use (engine units), 0 when not warping
 // For the stats window: the latest warp's lens FOV and the FOV it was rendered at (true horizontal
-// degrees), Auto's Panini share (0..1); false when no recent frame was warped (*skip says why).
-bool LensStats(float* lensFov, float* renderFov, float* autoBlend, const char** skip);
+// degrees); false when no recent frame was warped (*skip says why).
+bool LensStats(float* lensFov, float* renderFov, const char** skip);
 void LensWriteState(FILE* f);
 
 // supersample.cpp: renders at a virtual resolution, averaged down at Present (see the file header).
@@ -272,5 +280,6 @@ bool PhotoFlying();                   // photo mode is on and not paused by the 
 void PhotoInstall();                // at load: the movement speed detour (Shift in photo mode)
 void PhotoWheel(long delta);          // mouse wheel in photo mode (DirectInput units, 120 per notch)
 float PhotoZoomFov(float fov);        // the world FOV with photo mode's wheel zoom (fov unchanged outside it)
+float PhotoZoomedFov(float* unzoomed);  // the world FOV last shown, zoomed (and before the zoom), in the slider's unit
 void PhotoWriteState(FILE* f);
 void GameCmdWriteState(FILE* f);

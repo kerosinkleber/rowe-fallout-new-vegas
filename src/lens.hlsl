@@ -3,8 +3,8 @@
 // shaunlebron/flex-fov, as in gowfov's lens.hlsl.
 // Ray convention: x right, y up, z forward. Screen x spans [-1, 1], y spans [-1/aspect, 1/aspect].
 
-float4 params : register(c0);   // halfFov (radians), tanHalfRender (true horizontal), aspect, blend
-float4 params2 : register(c1);  // mode (1 auto, 2 Panini, 3 stereographic, 4 fisheye), circle (radians; 0 none), -, -
+float4 params : register(c0);   // halfFov (radians), tanHalfRender (true horizontal), aspect, -
+float4 params2 : register(c1);  // mode (2 Panini, 3 stereographic, 4 fisheye), circle (radians; 0 none), -, -
 float4 pixelOffset : register(c2);  // D3D9 half-pixel offset in clip space (-1/w, 1/h)
 float4 hole : register(c3);         // source uv rect (x0, y0, x1, y1) read from PreUI instead; empty = none
 
@@ -19,11 +19,6 @@ VSOut VSMain(float4 pos : POSITION, float2 uv : TEXCOORD0)
     o.pos = float4(pos.xy + pixelOffset.xy, 0, 1);
     o.uv = uv;
     return o;
-}
-
-float3 RayRectilinear(float2 s, float halfFov)
-{
-    return normalize(float3(s * tan(min(halfFov, 1.5690)), 1));
 }
 
 float3 RayPanini(float2 s, float halfFov)
@@ -60,14 +55,13 @@ float3 RayFisheye(float2 s, float halfFov)
 
 float4 PSMain(float2 uv : TEXCOORD0) : COLOR
 {
-    float halfFov = params.x, tanHalfRender = params.y, aspect = params.z, blend = params.w;
+    float halfFov = params.x, tanHalfRender = params.y, aspect = params.z;
     float mode = params2.x;
     float2 s = float2(uv.x * 2 - 1, (1 - uv.y * 2) / aspect);
     float3 ray;
     if (mode > 3.5) ray = RayFisheye(s, halfFov);
     else if (mode > 2.5) ray = RayStereographic(s, halfFov);
-    else if (mode > 1.5) ray = RayPanini(s, halfFov);
-    else ray = normalize(lerp(RayRectilinear(s, halfFov), RayPanini(s, halfFov), blend));
+    else ray = RayPanini(s, halfFov);
 
     if (ray.z <= 1e-4) return float4(0, 0, 0, 1);
     // Fisheye full circle: nothing beyond the circle's angle (the render's corners would show past it).

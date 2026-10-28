@@ -3,8 +3,8 @@
 //
 //   fov=0            0 = game default, otherwise 60-160 (horizontal FOV at 4:3, like the game's
 //                    own fDefaultWorldFOV; 16:9 shows more)
-//   lens=1           0 off, 1 auto, 2 Panini, 3 stereographic, 4 fisheye (equidistant, up to 160
-//                    degrees across, black corners)
+//   lens=2           0 off, 2 Panini, 3 stereographic, 4 fisheye (equidistant, up to 160 degrees
+//                    across, black corners); 1 (the former auto) reads as Panini
 //   zoomfov=0        0 = game default (fIronSightsZoomDefault, 50, through the FOV remap), otherwise
 //                    10-160 in the FOV slider's unit: where the zoom with the weapon holstered ends
 //   pipboyfov=0      0 = game default (fPipboy1stPersonFOV, 47), otherwise 20-90: the Pip-Boy's FOV
@@ -25,6 +25,8 @@
 //   screenshotkey=F12  key name (F1-F24, A-Z, 0-9, Home, End, Insert, Delete, PageUp, PageDown,
 //                    Pause, ScrollLock, PrintScreen, Num0-Num9) or a virtual key code (0x7B)
 //   menukey=F8       the key that opens and closes the settings menu (names as screenshotkey)
+//   lenskey=F7       the key that switches to the next lens (off, Panini, stereographic, fisheye)
+//   statskey=F11     the key that shows and hides the stats window
 //   screenshotsize=full  full = the supersampled size the game renders at, window = the window's size
 //   screenshotformat=jpg  jpg (quality below; small and fast) or png (lossless, about 5x larger, slower)
 //   screenshotquality=95  JPEG quality 1-100
@@ -60,6 +62,19 @@ Settings g_settings;
 
 static void Path(char* out) { wsprintfA(out, "%srowe.ini", ModDir()); }
 
+int LensChoiceIndex(int lens)
+{
+    for (int i = 0; i < kLensChoiceCount; ++i)
+        if (kLensChoices[i] == lens) return i;
+    return 1;  // Panini
+}
+
+const char* LensName(int lens)
+{
+    static const char* kNames[kLensChoiceCount] = {"Off", "Panini", "Stereographic", "Fisheye"};
+    return kNames[LensChoiceIndex(lens)];
+}
+
 static float ReadFloat(const char* key, float def)
 {
     char path[MAX_PATH], buf[32], d[32];
@@ -90,8 +105,8 @@ void SettingsLoad()
     s.zoomFov = ReadFloat("zoomfov", 0);
     if (s.zoomFov != 0 && s.zoomFov < kZoomFovMin) s.zoomFov = kZoomFovMin;
     if (s.zoomFov > kFovMax) s.zoomFov = kFovMax;
-    s.lens = (int)ReadFloat("lens", 1);
-    if (s.lens < 0 || s.lens >= kLensModeCount) s.lens = 1;
+    s.lens = (int)ReadFloat("lens", kLensPanini);
+    if (s.lens < 0 || s.lens >= kLensModeCount || s.lens == 1) s.lens = kLensPanini;  // (1: the former auto)
     s.supersample = ReadFloat("supersample", 1);
     if (s.supersample < 1) s.supersample = 1;
     if (s.supersample > 64) s.supersample = 64;
@@ -119,6 +134,18 @@ void SettingsLoad()
         s.menuKey = VK_F8;
     }
     if (s.screenshotKey == s.menuKey) Log("settings: screenshotkey '%s' is also the settings menu key", buf);
+    ReadString("lenskey", "F7", buf, sizeof(buf));
+    s.lensKey = KeyFromName(buf);
+    if (!s.lensKey) {
+        Log("settings: unknown lenskey '%s', using F7", buf);
+        s.lensKey = VK_F7;
+    }
+    ReadString("statskey", "F11", buf, sizeof(buf));
+    s.statsKey = KeyFromName(buf);
+    if (!s.statsKey) {
+        Log("settings: unknown statskey '%s', using F11", buf);
+        s.statsKey = VK_F11;
+    }
     ReadString("screenshotsize", "full", buf, sizeof(buf));
     s.screenshotFull = lstrcmpiA(buf, "window") != 0;
     ReadString("screenshotformat", "jpg", buf, sizeof(buf));
@@ -205,6 +232,10 @@ void SettingsSave()
     WritePrivateProfileStringA("rowe", "screenshotkey", v, path);
     KeyName(g_settings.menuKey, v, sizeof(v));
     WritePrivateProfileStringA("rowe", "menukey", v, path);
+    KeyName(g_settings.lensKey, v, sizeof(v));
+    WritePrivateProfileStringA("rowe", "lenskey", v, path);
+    KeyName(g_settings.statsKey, v, sizeof(v));
+    WritePrivateProfileStringA("rowe", "statskey", v, path);
     WritePrivateProfileStringA("rowe", "screenshotsize", g_settings.screenshotFull ? "full" : "window", path);
     WritePrivateProfileStringA("rowe", "screenshotformat", g_settings.screenshotJpg ? "jpg" : "png", path);
     sprintf(v, "%d", g_settings.screenshotQuality);

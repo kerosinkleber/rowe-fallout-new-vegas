@@ -23,6 +23,7 @@
 #include "gamefiles.h"
 #include "hudstyle.h"
 #include "keynames.h"
+#include "photowarning.h"
 #include "backends/imgui_impl_dx9.h"
 #include "backends/imgui_impl_win32.h"
 #include "sharetechmono_ttf.h"
@@ -1229,6 +1230,7 @@ static void DrawLauncher()
         ImGui::TextDisabled("%s", w.c_str());
     }
     HudSeparator();
+    ImGui::TextWrapped("%s", ROWE_PHOTO_WARNING);  // (the game's photo mode, F10 by default)
 
     float footer = g_px * 3.2f;
     float bodyH = ImGui::GetContentRegionAvail().y - footer;

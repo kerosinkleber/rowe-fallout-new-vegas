@@ -166,7 +166,7 @@ enum {
     kOptAutosaveMinutes, kOptAutosaveSlots, kOptPhotoFast, kOptPhotoHud, kOptPhotoFreeze, kOptCount
 };
 
-static const char* kLensNames[kLensModeCount] = {"Off", "Auto", "Panini", "Stereographic", "Fisheye"};
+static const char* kLensNames[kLensChoiceCount] = {"Off", "Panini", "Stereographic", "Fisheye"};  // kLensChoices
 static const char* kFisheyeNames[] = {"Fill", "Full circle"};
 static const char* kScopeNames[] = {"Bent with the lens", "Flat"};
 static const float kSupersample[] = {1, 2, 4, 9, 16, 25, 36, 49, 64};  // MCM lists hold 10 entries
@@ -207,7 +207,7 @@ static const char* Help(int id)
     switch (id) {
     case kOptFov: return "Horizontal field of view in degrees at 4:3, like the game's own setting (wider screens show more).";
     case kOptFovGame: return "Leave the field of view to the game.";
-    case kOptLens: return "How very wide views are drawn without stretched edges. Auto: normal up to 90 degrees, then Panini. "
+    case kOptLens: return "How very wide views are drawn without stretched edges. "
                           "Panini keeps vertical lines straight, Stereographic keeps shapes round, Fisheye goes up to 160 degrees.";
     case kOptFisheye: return "Fill: the picture fills the screen's width. Full circle: at the widest FOV the whole rendered circle "
                              "is shown; lower FOVs and zooming magnify it.";
@@ -260,7 +260,7 @@ static void Fill()
     Opt(kOptFovGame, "_type", kCheck);
     Opt(kOptFovGame, "_value", fovGame);
     Opt(kOptLens, "_type", kList);
-    ListValue(kOptLens, kLensNames[g_settings.lens]);
+    ListValue(kOptLens, LensName(g_settings.lens));
     Opt(kOptFisheye, "_type", kList);
     ListValue(kOptFisheye, kFisheyeNames[g_settings.fisheyeCircle ? 1 : 0]);
     Opt(kOptFisheye, "_enable", g_settings.lens == kLensFisheye ? 1.f : 2.f);
@@ -317,7 +317,7 @@ static void FillList(int option)
     char ssNames[9][16];
     const char* ssPtr[9];
     switch (option) {
-    case kOptLens: names = kLensNames; count = kLensModeCount; current = g_settings.lens; break;
+    case kOptLens: names = kLensNames; count = kLensChoiceCount; current = LensChoiceIndex(g_settings.lens); break;
     case kOptFisheye: names = kFisheyeNames; count = 2; current = g_settings.fisheyeCircle ? 1 : 0; break;
     case kOptScope: names = kScopeNames; count = 2; current = g_settings.scopeLens ? 0 : 1; break;
     case kOptMousetrap: names = kTrapNames; count = kMouseTrapModeCount; current = g_settings.mousetrap; break;
@@ -387,7 +387,7 @@ static void Apply(int option, float v)
     switch (option) {
     case kOptFov: g_settings.fov = v; break;
     case kOptFovGame: g_settings.fov = v != 0 ? 0.f : floorf(FovBase() + 0.5f); break;
-    case kOptLens: if (entry >= 0 && entry < kLensModeCount) g_settings.lens = entry; break;
+    case kOptLens: if (entry >= 0 && entry < kLensChoiceCount) g_settings.lens = kLensChoices[entry]; break;
     case kOptFisheye: g_settings.fisheyeCircle = entry == 1; break;
     case kOptScope: g_settings.scopeLens = entry == 0; break;
     case kOptZoom: g_settings.zoomFov = v; break;

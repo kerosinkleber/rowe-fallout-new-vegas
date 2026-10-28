@@ -137,7 +137,7 @@ static void SetCommand(char* arg)
     *value++ = 0;
     float v = (float)atof(value);
     if (!lstrcmpiA(arg, "fov")) g_settings.fov = v;
-    else if (!lstrcmpiA(arg, "lens")) g_settings.lens = (int)v;
+    else if (!lstrcmpiA(arg, "lens")) g_settings.lens = (int)v == 1 ? kLensPanini : (int)v;  // (1: the former auto)
     else if (!lstrcmpiA(arg, "pipboyfov")) g_settings.pipboyFov = v;
     else if (!lstrcmpiA(arg, "zoomfov")) g_settings.zoomFov = v;
     else if (!lstrcmpiA(arg, "supersample")) g_settings.supersample = v;

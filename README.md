@@ -10,7 +10,7 @@ A mod for **Fallout: New Vegas** (PC) in the style of
 - **FOV slider** (60–160). Aiming keeps its vanilla magnification; scopes are left alone. The
   weapon keeps its size.
 - **Lens correction** after [flex-fov](https://github.com/shaunlebron/flex-fov): very wide FOVs
-  without stretched edges (auto, Panini or stereographic projection), in gameplay, the Pip-Boy and
+  without stretched edges (Panini or stereographic projection), in gameplay, the Pip-Boy and
   the pause menu.
 - **Pip-Boy FOV**: how big the Pip-Boy appears, separately from the world FOV.
 - **Supersampling** up to 64× (8× width and height; renders at a higher resolution and averages it down), in
@@ -25,7 +25,7 @@ A mod for **Fallout: New Vegas** (PC) in the style of
   everywhere.
 - **Intro skip**: clears the intro video settings in memory.
 - **Autosave** every so many minutes of play (you choose the interval), into a few rotating saves.
-- **Photo mode**: fly anywhere, invisible (no shadow, weapon holstered) and undetectable, the world loading as you go; Space / Ctrl fly up and down, Shift flies faster, the mouse wheel zooms.
+- **Photo mode**: fly anywhere, invisible (no shadow, weapon holstered) and undetectable, the world loading as you go; Space / Ctrl fly up and down, Shift flies faster, the mouse wheel zooms. Small windows show the view (FOV, zoom, lens) and the keys; they are never in your screenshots. **Photo mode is experimental: when you are done, load a save made before you used it instead of playing on.**
 - **Fullscreen at any size**: fullscreen at a size the monitor has no display mode for (1400x1400,
   say) would stop the game with "failed to initialize renderer"; the mod runs it as a borderless
   window of that size instead, centred on a black background.
@@ -164,17 +164,19 @@ target `powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -F
 |---|---|
 | F8 | Open or close the settings menu (`menukey`) |
 | F12 | Screenshot (key, folder, size and format: in the menu, or the `screenshot...` settings below). When it is written, "<file> was saved to <folder>" shows at the top of the screen for a few seconds; that notice is never in a screenshot |
-| F10 | Photo mode on / off (`photokey`, also with Ctrl / Alt). In photo mode: the movement keys fly you where you look, Space up, Ctrl down; hold Shift to fly `photofast` times faster; the mouse wheel zooms (5 degrees to the FOV maximum, back when photo mode ends). Esc opens the pause menu and photo mode waits: it carries on where you were when you close the menu. The Pip-Boy can't be opened, and no game can be saved while photo mode is on |
+| F10 | Photo mode on / off (`photokey`, also with Ctrl / Alt). In photo mode: the movement keys fly you where you look, Space up, Ctrl down; hold Shift to fly `photofast` times faster; the mouse wheel zooms (5 degrees to the FOV maximum, back when photo mode ends). A window at the top left shows the FOV, the zoomed FOV and the lens; one at the bottom shows the keys and the warning below. Neither is in screenshots. Esc opens the pause menu and photo mode waits: it carries on where you were when you close the menu. The Pip-Boy, your weapon (drawing, attacking, aiming, VATS, the hotkeys) and saving are off while photo mode is on. Photo mode is experimental: when you are done, load a save made before you used it instead of playing on |
+| F7 | Next lens: off, Panini, stereographic, fisheye (`lenskey`); the lens shows at the top of the screen for a few seconds |
+| F11 | Show or hide the stats window (`statskey`) |
 
 The settings menu (F8) is used with the mouse (sliders, lists, checkboxes; hover for an
 explanation) or the keyboard (arrows, Enter, Tab). It has four tabs: **View** (FOV, lens, scope
 overlay, zoom FOV, Pip-Boy FOV with a **take out / put away** button to see the Pip-Boy while
-setting it; "game" uses the game's own value), **Image** (supersampling, pixelated look and
+setting it; "game" uses the game's own value; the lens key), **Image** (supersampling, pixelated look and
 whole image or world only, ReShade first), **Screenshots** (key: click and press the new key; folder; size; format; JPEG
-quality; **browse** picks the folder in a list, like ReShade's path picker), **Photo** (start / end, the shortcut,
+quality; **browse** picks the folder in a list, like ReShade's path picker), **Photo** (the experimental warning, start / end, the shortcut,
 the fast speed, hide the HUD, freeze people) and **Other** (mouse
 trap, intro videos, **autosave** (on/off, the minutes typed in, the number of slots), menu key, **stats**: a small window with the active lens and the supersampling
-sizes, also with the menu closed). Below the tabs, **restart game** applies the settings that only take effect
+sizes, also with the menu closed, and its key). Below the tabs, **restart game** applies the settings that only take effect
 at start (supersampling, pixel size, intro videos; the row says when one is waiting): the game is saved as
 `rowe_restart`, started again the way it was started (`nvse_loader.exe`, or a 4GB-patched
 `FalloutNV.exe` that loads xNVSE itself; under Mod Organizer 2 it stays in MO2's virtual file
@@ -182,8 +184,8 @@ system) and that save is loaded. While the menu is open the game gets no mouse o
 keyboard input and the mouse is free; changes apply at once and are saved. It is drawn in the
 style of the game's HUD (the HP / AP brackets): the game's UI font and HUD colour, thick glowing
 frame lines with chamfered joints, sliders as segmented meters, choices boxed like Pip-Boy list
-entries. F8 and F12 are unbound
-in the game's default controls (F9 is QuickLoad there). Settings are saved to `rowe.ini` next to
+entries. F7, F8, F10, F11 and F12 are unbound
+in the game's default controls (F5 is QuickSave there, F9 QuickLoad). Settings are saved to `rowe.ini` next to
 the DLL:
 
 | Key | Values | Default |
@@ -191,7 +193,7 @@ the DLL:
 | `fov` | `0` = game default, otherwise 60–160, in the game's own unit (horizontal FOV at 4:3, like `fDefaultWorldFOV`; the game's default is 75, which is 91° at 16:9) | `0` |
 | `zoomfov` | `0` = game default (`fIronSightsZoomDefault`, 50, shown as about 96 with FOV 130), otherwise 10–160 in the same unit as `fov`: where the zoom ends when you aim with the weapon holstered | `0` |
 | `pipboyfov` | `0` = game default (47), otherwise 20–90 in the same unit. Lower makes the Pip-Boy bigger. | `0` |
-| `lens` | `0` off, `1` auto (rectilinear up to 90°, blending into Panini by 160°), `2` Panini, `3` stereographic, `4` fisheye (equidistant: angles spread evenly from the centre; up to 160° across the screen, the corners beyond 90° to the side stay black like a fisheye lens' vignette). Only active when `fov` is set. | `1` |
+| `lens` | `0` off, `2` Panini, `3` stereographic, `4` fisheye (equidistant: angles spread evenly from the centre; up to 160° across the screen, the corners beyond 90° to the side stay black like a fisheye lens' vignette). `1` (the former auto lens) reads as Panini. Only active when `fov` is set. | `2` |
 | `supersample` | Pixel-count multiplier 1–64 (`4` = twice the width and height, `16` = four times, `64` = eight times). Applies at the next start. The game's own antialiasing is reduced so that factor × samples stays ≤ 64 (16× gets 4× MSAA, 25× 2×, 36× and up none, where it adds nothing visible but takes gigabytes of video memory, most of all in VATS); FalloutPrefs.ini keeps your value. | `1` |
 | `pixelsize` | Pixelated look: `2`–`8` window pixels per game pixel across and down (`4` at 1920×1080 renders at 480×270). The game really renders at that size (every render target, the depth buffer, HDR and bloom), and each pixel is shown as a hard square block (nearest neighbour), not blurred. If the window is not a multiple of the size, the game renders a few pixels more and the overhang (less than one game pixel at each edge) is cut off, so all blocks stay square and equal. Replaces `supersample` while it is on. Applies at the next start. The game's own antialiasing (iMultiSample) still works inside the small image and softens the blocks' edges; set Antialiasing to off in the ROWE launcher (or the game's launcher) for the hardest pixels. `1` = off. | `1` |
 | `pixelhud` | Pixelated look: `1` the whole image is rendered at the low resolution, HUD, menus, console and cursor included (F8: "whole image"); `0` the HUD and menus are drawn at the window's resolution over the pixelated world (F8: "world only, HUD sharp"). Applies at once. The Pip-Boy is a 3D object in the world, so its screen is pixelated either way (larger pixel sizes make it hard to read; 2 or 3 keep it readable). | `1` |
@@ -202,6 +204,8 @@ the DLL:
 | `screenshotdir` | Folder for screenshots, created if missing. `%VARIABLES%` are expanded (e.g. `%USERPROFILE%\Pictures\Fallout`); a relative path starts at the game folder. Empty: next to the DLL (under Mod Organizer 2: in Overwrite). | empty |
 | `screenshotkey` | Screenshot key: `F1`–`F24`, `A`–`Z`, `0`–`9`, `Num0`–`Num9`, `Home`, `End`, `Insert`, `Delete`, `PageUp`, `PageDown`, `Pause`, `ScrollLock`, `PrintScreen`, or a virtual key code such as `0x7B`. Avoid the menu key and keys the game uses. | `F12` |
 | `menukey` | The key that opens and closes the settings menu, named as `screenshotkey`. Pick one the game does not use. | `F8` |
+| `lenskey` | The key that switches to the next lens (off, Panini, stereographic, fisheye), named as `screenshotkey`. | `F7` |
+| `statskey` | The key that shows and hides the stats window, named as `screenshotkey`. | `F11` |
 | `screenshotsize` | `full`: the size the game renders at (with supersampling, e.g. 11520x6480 at 36x and a 1920x1080 window); `window`: the window's size. | `full` |
 | `screenshotformat` | `jpg` or `png`. JPEG at quality 95 is visually lossless at these sizes, about 5x smaller and over 10x faster to write (36x, 1920x1080: 16 MB in 0.3 s against 73 MB in 4.5 s); PNG is lossless, for editing. Either way the game does not wait: the frame is copied on the GPU and written by a background thread. | `jpg` |
 | `screenshotquality` | JPEG quality 1–100. | `95` |
@@ -211,8 +215,8 @@ the DLL:
 | `autosave` | `1` saves the game every `autosaveminutes` minutes of play as "ROWE Autosave 1", 2, ... in turn. Only time in gameplay counts (not menus, loading screens or the game in the background); when the time is up during combat or with the player dead it waits until that is over; loading, starting or saving a game (your own saves too) starts the count again. Also on the launcher's Mod tab and the MCM page. | `0` |
 | `autosaveminutes` | Minutes of play between autosaves, 1-240. | `20` |
 | `autosaveslots` | How many autosaves are kept, 1-10: the oldest is overwritten (`autosavenext` is the next slot). | `3` |
-| `photokey` | Photo mode shortcut: a key name as `screenshotkey`, optionally with `Ctrl+` / `Alt+` (e.g. `Alt+P`; in photo mode Shift is the speed key and Ctrl flies down). Photo mode: the player flies with collision off (`tcl`; they move where they look, so the game loads the world around them as when walking), invisible (`SetActorAlpha 0`, and their 3D culled, so they cast no shadow either) with the weapon holstered (drawn again after) and undetectable (`tdetect`), seen from the first person (switched there and back if you were in the third, so the camera turns around the eye; the first-person arms are hidden too), the HUD hidden (`tm`) if `photohud=1`, people and creatures stopped (`tai`) if `photofreeze=1`. It starts only in gameplay. The shortcut again puts the player back where photo mode started (a marker is left there and the player is moved to it with `MoveTo`; the marker is deleted after); The pause menu (Esc) pauses it, and it carries on where it was when the menu closes (the HUD photo mode hid is shown while the menu is open); opening another menu ends it the same way (the Pip-Boy key is off while it is on), and loading a game, the main menu and quitting end it too. The shortcut starts it again at once, also right after it ended (it then carries on from the same start). The first person and the drawn weapon come back once the game is in gameplay again. Everything is put back as it was: each toggle is toggled back only if photo mode toggled it. No game is saved while it is on (the pause menu's Save, Quicksave, autosaves and the console's `save` are refused with a notice; the mod's autosave waits), so no save keeps the invisible player; the game's Run, Jump, Sneak and Pip-Boy controls are off too (Shift would also switch to walking, Space and Ctrl fly up and down; the Pip-Boy would end it). All are enabled again after only if they were. | `F10` |
-| `photofast` | Photo mode: how many times faster you fly while Shift is held (1-50), up and down too. The movement settings and `SpeedMult` do not change the flying speed, so the mod scales the movement itself where the game places the flying player each frame (whatever moves them, animation mods included). | `5` |
+| `photokey` | Photo mode shortcut: a key name as `screenshotkey`, optionally with `Ctrl+` / `Alt+` (e.g. `Alt+P`; in photo mode Shift is the speed key and Ctrl flies down). Photo mode: the player flies with collision off (`tcl`; they move where they look, so the game loads the world around them as when walking), invisible (`SetActorAlpha 0`, and their 3D culled, so they cast no shadow either) with the weapon holstered (drawn again after) and undetectable (`tdetect`), seen from the first person (switched there and back if you were in the third, so the camera turns around the eye; the first-person arms are hidden too), the HUD hidden (`tm`) if `photohud=1`, people and creatures stopped (`tai`) if `photofreeze=1`. It starts only in gameplay. The shortcut again puts the player back where photo mode started (a marker is left there and the player is moved to it with `MoveTo`; the marker is deleted after); The pause menu (Esc) pauses it, and it carries on where it was when the menu closes (the HUD photo mode hid is shown while the menu is open); opening another menu ends it the same way (the Pip-Boy key is off while it is on), and loading a game, the main menu and quitting end it too. The shortcut starts it again at once, also right after it ended (it then carries on from the same start). The first person and the drawn weapon come back once the game is in gameplay again. Everything is put back as it was: each toggle is toggled back only if photo mode toggled it. No game is saved while it is on (the pause menu's Save, Quicksave, autosaves and the console's `save` are refused with a notice; the mod's autosave waits), so no save keeps the invisible player; some of the game's controls are off too: Run, Jump and Sneak (Shift would also switch to walking, Space and Ctrl fly up and down), the Pip-Boy (it would end photo mode), and Attack, Aim, Ready Item, VATS, the hotkeys and Ammo Swap, so the invisible player cannot fight. All are enabled again after only if they were. A window at the top left shows the FOV, the zoomed FOV and the lens, one at the bottom the keys and the warning; the overlay draws them after the screenshot is copied, so they are never in one. | `F10` |
+| `photofast` | Photo mode: how many times faster you fly while Shift is held (1-50), up and down too. The movement settings and `SpeedMult` do not change the flying speed, so the mod scales the movement itself where the game places the flying player each frame (whatever moves them, animation mods included). The game's own step per frame is uneven (at 60 fps 5.4, 5.1 and 3.4 units in turn), which made the view jerk, more so when fast: the mod flies at the steady average of it instead, times the real frame time. | `5` |
 | `photohud` | Photo mode: `1` hides the HUD. | `1` |
 | `photofreeze` | Photo mode: `1` stops people and creatures. | `0` |
 | `showcase` | `1`: the screenshot key takes the showcase series instead of one shot: no lens, Panini, stereographic and fisheye at FOV 75, 90 and 160 (12 shots, window size, the stats window in each), named `ROWE_showcase_<time>_fov<fov>_<lens>`. Your FOV, lens and stats come back after; the key again stops it. Also the "Showcase" checkbox on the menu's Photo tab. | `0` |

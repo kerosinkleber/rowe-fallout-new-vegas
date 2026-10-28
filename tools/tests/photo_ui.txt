@@ -1,0 +1,59 @@
+# Photo mode's windows, keys and weapon lock (save "ROWE Photo Test"; start with lens=1, the former
+# auto, which must read as Panini). The weapon is drawn first (R held through xNVSE). In photo mode:
+# a shot with the overlay (shotmenu: the view window top left, the keys and warning at the bottom)
+# and the key's screenshot (usershot: neither window in it). The runner presses the real keys:
+# R at "r now" (Ready weapon is off: the weapon stays holstered), F7 at "lens now" (Panini ->
+# stereographic, with a notice), F11 at "stats now" (the stats window). Then the wheel zooms (the
+# view window's zoom FOV). After photo mode: F7 three times and F11 at "restore now" (back to
+# Panini, stats off). The runner focuses the game at "focus now 1". Nothing is saved.
+log photoui: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+waitgameplay 3600
+wait 60
+log photoui: focus now 1
+wait 120
+waitfocus 1200
+ifmenu 1013 key esc
+waitnomenu 1013 300
+wait 60
+ifmenu 1013 key esc
+waitnomenu 1013 300
+waitgameplay 600
+keydown r
+wait 60
+keyup r
+wait 120
+log photoui: weapon drawn
+photo
+wait 150
+log photoui: photo on
+shotmenu
+wait 10
+usershot
+wait 60
+log photoui: r now
+wait 120
+log photoui: after r
+shot
+log photoui: lens now
+wait 90
+log photoui: after lens
+shotmenu
+log photoui: stats now
+wait 90
+log photoui: after stats
+shotmenu
+wheel 600
+wait 90
+log photoui: zoomed
+shotmenu
+photo
+wait 240
+log photoui: photo off
+shotmenu
+log photoui: restore now
+wait 150
+log photoui: done
+con qqq

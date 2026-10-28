@@ -1,0 +1,18 @@
+# The settings menu's View, Photo and Other tabs (lens without auto and the lens key; the photo mode
+# warning; the stats key), at the main menu. Shots with the menu. Nothing is saved.
+log menutabs: boot
+waitmenu 1013 3600
+wait 120
+overlay open
+overlay tab View
+wait 30
+shotmenu
+overlay tab Photo
+wait 30
+shotmenu
+overlay tab Other
+wait 30
+shotmenu
+overlay close
+log menutabs: done
+con qqq

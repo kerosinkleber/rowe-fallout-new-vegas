@@ -1,6 +1,5 @@
-// Lens correction: very wide FOVs without stretched edges (Panini or stereographic projection,
-// "auto": rectilinear up to 90 degrees, blending into Panini by 160, or fisheye: equidistant, up to
-// 160 degrees across with black corners), after flex-fov and gowfov.
+// Lens correction: very wide FOVs without stretched edges (Panini or stereographic projection, or
+// fisheye: equidistant, up to 160 degrees across with black corners), after flex-fov and gowfov.
 //
 // 1. FOV (fov.cpp -> LensRenderFov): the slider's angle becomes a lens FOV; the world is rendered
 //    at the wider rectilinear FOV that covers every ray the lens shows. Fisheye "full circle": the
@@ -44,12 +43,6 @@ static V3 Norm(V3 v)
     return {v.x / l, v.y / l, v.z / l};
 }
 
-static V3 RayRectilinear(float sx, float sy, float half)
-{
-    float t = tanf(half < 1.5690f ? half : 1.5690f);
-    return Norm({sx * t, sy * t, 1});
-}
-
 static V3 RayPanini(float sx, float sy, float half)
 {
     float edge = 2 * sinf(half) / (1 + cosf(half));
@@ -83,35 +76,24 @@ static V3 RayFisheye(float sx, float sy, float half)
     return {px / r * sinf(r), py / r * sinf(r), cosf(r)};
 }
 
-// Rectilinear up to 90 degrees, full Panini from 160 (ease-out in between).
-static float AutoBlend(float fovDeg)
-{
-    float t = (fovDeg - 90.f) / 70.f;
-    if (t <= 0) return 0;
-    if (t >= 1) return 1;
-    return 1 - (t - 1) * (t - 1);
-}
-
-static V3 Ray(int mode, float sx, float sy, float half, float blend)
+static V3 Ray(int mode, float sx, float sy, float half)
 {
     if (mode == kLensStereographic) return RayStereographic(sx, sy, half);
     if (mode == kLensFisheye) return RayFisheye(sx, sy, half);
-    if (mode == kLensPanini) return RayPanini(sx, sy, half);
-    V3 a = RayRectilinear(sx, sy, half), b = RayPanini(sx, sy, half);
-    return Norm({a.x + (b.x - a.x) * blend, a.y + (b.y - a.y) * blend, a.z + (b.z - a.z) * blend});
+    return RayPanini(sx, sy, half);
 }
 
 // Smallest tan(render half-FOV) whose rectilinear image contains every ray the lens needs.
 static float CoverageTan(int mode, float fovDeg, float aspect)
 {
-    float half = fovDeg * kPi / 360.f, blend = AutoBlend(fovDeg);
+    float half = fovDeg * kPi / 360.f;
     float need = 0;
     const int n = 48;
     for (int i = 0; i <= n; ++i) {
         float t = -1 + 2.f * i / n;
         float pts[4][2] = {{t, 1 / aspect}, {t, -1 / aspect}, {1, t / aspect}, {-1, t / aspect}};
         for (auto& p : pts) {
-            V3 r = Ray(mode, p[0], p[1], half, blend);
+            V3 r = Ray(mode, p[0], p[1], half);
             if (r.z <= 1e-4f) return 1e9f;
             float x = fabsf(r.x / r.z), y = fabsf(r.y / r.z) * aspect;
             if (x > need) need = x;
@@ -125,7 +107,7 @@ static float CoverageTan(int mode, float fovDeg, float aspect)
 static float CentreScale(int mode, float fovDeg)
 {
     const float d = 1e-3f;
-    V3 r = Ray(mode, d, 0, fovDeg * kPi / 360.f, AutoBlend(fovDeg));
+    V3 r = Ray(mode, d, 0, fovDeg * kPi / 360.f);
     return atan2f(r.x, r.z) / d;
 }
 
@@ -233,7 +215,6 @@ float LensRenderFov(float engineFov)
     UpdateAspect();
     float tanTrue = kRef * s_aspect * tanf(engineFov * kPi / 360.f);
     float lensFov = 2 * atanf(tanTrue) * 180.f / kPi;
-    if (mode == kLensAuto && lensFov <= 90.f) return engineFov;
     EnsureTable(mode, s_aspect);
     float maxTan = tanf(kMaxRenderFov * kPi / 360.f);
     float tanR = TableCoverage(lensFov);
@@ -281,7 +262,6 @@ float LensViewmodelFov(float engineFov)
         EnsureTable(g_settings.lens, s_aspect);
         renderTan = s_snapTan;
         lensFov = LensForRender(renderTan);
-        if (g_settings.lens == kLensAuto && lensFov <= 90.5f) return engineFov;  // that frame is not warped
     }
     float c = CentreScale(g_settings.lens, lensFov);
     if (c <= 1e-4f) return engineFov;
@@ -297,13 +277,12 @@ float LensEffectiveFov()
     return 2 * atanf(tanf(half) / (kRef * s_aspect)) * 180.f / kPi;  // engine units
 }
 
-bool LensStats(float* lensFov, float* renderFov, float* autoBlend, const char** skip)
+bool LensStats(float* lensFov, float* renderFov, const char** skip)
 {
     *skip = s_skip;
     if (s_warpFov <= 0 || FrameCount() - s_warpFrame > 5) return false;
     *lensFov = Circle() ? CircleTheta() * 360.f / kPi : s_warpFov;
     *renderFov = 2 * atanf(s_snapTan) * 180.f / kPi;
-    *autoBlend = g_settings.lens == kLensAuto ? AutoBlend(s_warpFov) : 0.f;
     return true;
 }
 
@@ -412,7 +391,6 @@ static float Decide()
     UpdateAspect();
     EnsureTable(mode, s_aspect);
     float lensFov = LensForRender(s_snapTan);
-    if (mode == kLensAuto && lensFov <= 90.5f) { s_skip = "rectilinear (auto, <= 90)"; return 0; }
     return lensFov;
 }
 
@@ -447,7 +425,7 @@ static void Warp(IDirect3DDevice9* dev, IDirect3DSurface9* rt, float lensFov, bo
     dev->SetPixelShader(s_ps);
     dev->SetFVF(D3DFVF_XYZ | D3DFVF_TEX1);
     float half = lensFov * kPi / 360.f;
-    float c0[4] = {half, s_snapTan, s_aspect, AutoBlend(lensFov)};
+    float c0[4] = {half, s_snapTan, s_aspect, 0};
     float c1[4] = {(float)mode, CircleTheta(), 0, 0};
     float c2[4] = {-1.f / d.Width, 1.f / d.Height, 0, 0};
     dev->SetPixelShaderConstantF(0, c0, 1);
@@ -613,7 +591,7 @@ static bool MapToSource(float lensFov, int w, int h, float x, float y, float* sx
 {
     float half = lensFov * kPi / 360.f;
     float u = x / w * 2 - 1, v = (1 - y / h * 2) / s_aspect;
-    V3 r = Ray(g_settings.lens, u, v, half, AutoBlend(lensFov));
+    V3 r = Ray(g_settings.lens, u, v, half);
     if (r.z <= 1e-4f) return false;
     if (Circle() && sqrtf(u * u + v * v) * half > CircleTheta()) return false;
     float rx = r.x / r.z / s_snapTan, ry = r.y / r.z / (s_snapTan / s_aspect);

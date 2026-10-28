@@ -7,10 +7,11 @@
 // (ToggleAI) if photofreeze=1. Because the player really moves, the game crosses cells and loads
 // the world as when walking (a free camera, "tfc", leaves the player behind and nothing loads where
 // it flies, and moving the player after it with SetPos leaves their cell behind and crashed the game).
-// Holding Shift flies photofast times faster, Space flies up and Ctrl down: see Hook_SetPosition.
-// The game's Run, Jump and Sneak controls are off while photo mode is on (Shift would also switch
-// to walking, Space jump, Ctrl sneak), and so is the Pip-Boy's (opening it ended photo mode). The mouse wheel zooms (dinput.cpp hands it over and keeps
-// it from the game, fov.cpp applies PhotoZoomFov).
+// Holding Shift flies photofast times faster, Space flies up and Ctrl down, at a steady speed: see
+// Hook_SetPosition. Some of the game's controls are off while photo mode is on (kControlsOff: Run,
+// Jump and Sneak, whose keys fly; the Pip-Boy, which would end it; attacking, aiming, drawing the
+// weapon, VATS and the hotkeys, so the invisible player cannot fight). The mouse wheel zooms
+// (dinput.cpp hands it over and keeps it from the game, fov.cpp applies PhotoZoomFov).
 // The shortcut again ends it and puts the player back where photo mode started: there it leaves
 // a marker (PlaceAtMe XMarkerHeading), and the player is moved to it (MoveTo) a moment after the
 // collision is back on (a move while flying is lost). The pause menu (Esc) pauses it: it carries on
@@ -19,9 +20,8 @@
 // is saved while it is on (Hook_SaveGame: the pause menu's Save, Quicksave, autosaves, the console):
 // a save would keep the invisible player in mid-air.
 // Everything is put back as it was: each toggle is toggled back only if photo mode toggled it
-// (and the state is tracked, so an early end never toggles one twice), Quicksave and Run are
-// (and Jump, Sneak and the Pip-Boy) enabled only if they were, the speed scale goes back to 1, the marker is
-// deleted.
+// (and the state is tracked, so an early end never toggles one twice), each control is enabled
+// again only if it was, the speed scale goes back to 1, the marker is deleted.
 // Starts only in gameplay; the console commands run on the game thread.
 #include <windows.h>
 #include <intrin.h>
@@ -41,8 +41,24 @@ static bool s_drawPending, s_povPending;
 // 24 s after a photo mode whose end switched the POV and drew the weapon in one frame).
 static const DWORD kWeaponDelayMs = 400;
 static DWORD s_holsterAt, s_drawAt;  // when to holster (photo mode on) / draw again (off); 0: not pending
-static bool s_noclip, s_hudHidden, s_aiStopped, s_povSwitched, s_undetected, s_invisible, s_quicksaveOff, s_runOff, s_jumpOff,
-    s_sneakOff, s_pipboyOff;
+static bool s_noclip, s_hudHidden, s_aiStopped, s_povSwitched, s_undetected, s_invisible;
+// The game's controls that are off while photo mode is on (DisableControl), each enabled again at
+// the end only if photo mode turned it off.
+static const struct { int control; const char* why; } kControlsOff[] = {
+    {25, "Quicksave"},
+    {9, "Run (Shift would also switch to walking)"},
+    {12, "Jump (Space flies up)"},
+    {8, "Sneak (Ctrl flies down)"},
+    {14, "the Pip-Boy (it would end photo mode)"},
+    {4, "Attack"},
+    {6, "Aim"},
+    {7, "Ready weapon"},
+    {16, "VATS"},
+    {17, "Hotkey 1 (it equips a weapon)"}, {18, "Ammo swap"}, {19, "Hotkey 3"}, {20, "Hotkey 4"},
+    {21, "Hotkey 5"}, {22, "Hotkey 6"}, {23, "Hotkey 7"}, {24, "Hotkey 8"},
+};
+static const int kControlsOffCount = sizeof(kControlsOff) / sizeof(kControlsOff[0]);
+static bool s_controlOff[kControlsOffCount];  // photo mode turned it off
 static float s_startX, s_startY, s_startZ;  // where the player was when photo mode started
 static float s_startRot;                    // their heading (degrees)
 static DWORD s_startWorld;                  // their worldspace (0: an interior)
@@ -80,6 +96,11 @@ static bool __fastcall Hook_SaveGame(void* self, void* edx, const char* name, in
 // flying speed, times photofast with Shift). The movement settings, SpeedMult and the game's walk
 // / run speed are no lever: the first two do not touch flying, and the walk / run speed (scaled at
 // the movement update's calls 0x896BFD ...) only moved the player in the vanilla animation setup.
+// The game's step is uneven (at 60 fps 5.4, 5.1, 5.4, 5.1, 3.4 units in turn, and now and then a
+// frame without one and a double one after): the camera, fixed to the player, jerked forward and
+// up and down, times photofast with Shift. So the detour flies with its own steady velocity: the
+// game's steps averaged over kSmoothS (a velocity eased toward step / frame time), times the real
+// frame time; the speed factor eases too (Shift).
 typedef void(__fastcall* SetPositionFn)(void* pc, void* edx, float* pos);
 static SetPositionFn s_setPosition;
 static float s_speedScale = 1.f;  // set and read on the game thread
@@ -87,8 +108,11 @@ static int s_vertical;            // +1 up, -1 down, 0
 static float s_last[3];           // the position this call set last
 static bool s_haveLast;
 static LARGE_INTEGER s_lastTime;
+static float s_vel[3];            // the game's flight, averaged (units per second)
+static float s_scaleShown = 1.f;  // s_speedScale, eased
 static DWORD s_noclipCalls, s_scaledCalls;
 static const float kVerticalSpeed = 400.f;  // units per second, about the flying speed
+static const float kSmoothS = 0.08f;        // the averaging time (a 5-frame pattern at 60 fps)
 
 static void __fastcall Hook_SetPosition(void* pc, void* edx, float* pos)
 {
@@ -106,11 +130,20 @@ static void __fastcall Hook_SetPosition(void* pc, void* edx, float* pos)
     float d[3] = {pos[0] - s_last[0], pos[1] - s_last[1], pos[2] - s_last[2]};
     // A pause, a hitch or a jump that is not flying (a move by a script): start over from here.
     bool flying = s_haveLast && dt < 0.25f && d[0] * d[0] + d[1] * d[1] + d[2] * d[2] < 1000.f * 1000.f;
-    if (flying && s_speedScale != 1.f) {
-        for (int i = 0; i < 3; ++i) out[i] = s_last[i] + d[i] * s_speedScale;
-        ++s_scaledCalls;
+    if (flying) {
+        // (k * d / dt is about d / kSmoothS whatever dt is: a frame after a very short one adds no spike)
+        float k = 1.f - expf(-dt / kSmoothS);
+        s_scaleShown += (s_speedScale - s_scaleShown) * (1.f - expf(-dt / 0.15f));
+        for (int i = 0; i < 3; ++i) {
+            if (dt > 0) s_vel[i] += (d[i] / dt - s_vel[i]) * k;
+            out[i] = s_last[i] + s_vel[i] * s_scaleShown * dt;
+        }
+        if (s_speedScale != 1.f) ++s_scaledCalls;
+    } else {
+        s_vel[0] = s_vel[1] = s_vel[2] = 0;
+        s_scaleShown = s_speedScale;
     }
-    if (flying && s_vertical) out[2] += s_vertical * kVerticalSpeed * s_speedScale * (dt > 0.1f ? 0.1f : dt);
+    if (flying && s_vertical) out[2] += s_vertical * kVerticalSpeed * s_scaleShown * (dt > 0.1f ? 0.1f : dt);
     s_setPosition(pc, edx, out);
     memcpy(s_last, out, sizeof(out));
     s_haveLast = true;
@@ -138,6 +171,12 @@ float PhotoZoomFov(float fov)
     s_zoomShown = fov;
     if (s_zoom == 1.f) return s_zoomFov = fov;
     return s_zoomFov = atanf(tanf(fov * kPi / 360.f) * s_zoom) * 360.f / kPi;
+}
+
+float PhotoZoomedFov(float* unzoomed)
+{
+    *unzoomed = s_zoomShown;
+    return s_zoomFov;
 }
 
 static void ZoomEase()
@@ -356,19 +395,19 @@ static void Enter()
     if (s_hudHidden) GameConsole("tm");
     s_aiStopped = g_settings.photoFreeze;
     if (s_aiStopped) GameConsole("tai");
-    s_quicksaveOff = ScriptValue("IsControlDisabled 25") == 0;  // 25: Quicksave
-    if (s_quicksaveOff) GameConsole("DisableControl 25");
-    s_runOff = ScriptValue("IsControlDisabled 9") == 0;  // 9: Run (Shift: it would switch to walking)
-    if (s_runOff) GameConsole("DisableControl 9");
-    s_jumpOff = ScriptValue("IsControlDisabled 12") == 0;  // 12: Jump (Space flies up)
-    if (s_jumpOff) GameConsole("DisableControl 12");
-    s_sneakOff = ScriptValue("IsControlDisabled 8") == 0;  // 8: Sneak (Ctrl flies down)
-    if (s_sneakOff) GameConsole("DisableControl 8");
-    s_pipboyOff = ScriptValue("IsControlDisabled 14") == 0;  // 14: the Pip-Boy (it would end photo mode)
-    if (s_pipboyOff) GameConsole("DisableControl 14");
-    Log("photo: on%s at %.0f %.0f %.0f (worldspace %08lX, marker %p; people %s, HUD %s, Quicksave %s, Shift x%d%s%s)", resume ? " again" : "", s_startX, s_startY,
-        s_startZ, s_startWorld, s_marker, s_aiStopped ? "stopped" : "moving", s_hudHidden ? "hidden" : "shown",
-        s_quicksaveOff ? "turned off" : "was off", g_settings.photoFast, s_holsterAt ? ", weapon to holster" : s_holstered ? ", weapon holstered" : "",
+    int turnedOff = 0;
+    for (int i = 0; i < kControlsOffCount; ++i) {
+        char line[48];
+        wsprintfA(line, "IsControlDisabled %d", kControlsOff[i].control);
+        s_controlOff[i] = ScriptValue(line) == 0;
+        if (!s_controlOff[i]) continue;
+        wsprintfA(line, "DisableControl %d", kControlsOff[i].control);
+        GameConsole(line);
+        ++turnedOff;
+    }
+    Log("photo: on%s at %.0f %.0f %.0f (worldspace %08lX, marker %p; people %s, HUD %s, %d of %d controls turned off, Shift x%d%s%s)",
+        resume ? " again" : "", s_startX, s_startY, s_startZ, s_startWorld, s_marker, s_aiStopped ? "stopped" : "moving",
+        s_hudHidden ? "hidden" : "shown", turnedOff, kControlsOffCount, g_settings.photoFast, s_holsterAt ? ", weapon to holster" : s_holstered ? ", weapon holstered" : "",
         s_setPosition ? "" : ", SetPosition detour missing: no Shift, Space, Ctrl");
 }
 
@@ -403,13 +442,14 @@ void PhotoExit(const char* why)
     if (s_undetected) GameConsole("tdetect");
     if (s_hudHidden) GameConsole("tm");
     if (s_aiStopped) GameConsole("tai");
-    if (s_quicksaveOff) GameConsole("EnableControl 25");
-    if (s_runOff) GameConsole("EnableControl 9");
-    if (s_jumpOff) GameConsole("EnableControl 12");
-    if (s_sneakOff) GameConsole("EnableControl 8");
-    if (s_pipboyOff) GameConsole("EnableControl 14");
-    s_povSwitched = s_invisible = s_undetected = s_hudHidden = s_aiStopped = s_quicksaveOff = s_runOff = s_jumpOff = s_sneakOff =
-        s_pipboyOff = false;
+    for (int i = 0; i < kControlsOffCount; ++i) {
+        if (!s_controlOff[i]) continue;
+        char line[48];
+        wsprintfA(line, "EnableControl %d", kControlsOff[i].control);
+        GameConsole(line);
+        s_controlOff[i] = false;
+    }
+    s_povSwitched = s_invisible = s_undetected = s_hudHidden = s_aiStopped = false;
     if (back) {  // (else there is nothing to move back)
         s_backAt = GetTickCount() + 150;
         s_backTries = 0;
