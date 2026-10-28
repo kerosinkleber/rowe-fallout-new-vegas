@@ -7,10 +7,9 @@
 // game is not held up while the file is written: the frame is copied on the GPU in the frame it is
 // taken, read back over the next frames in strips and encoded on a worker thread.
 //
-// The `shot` / `shotscene` / `shotmenu` commands (testing) save rowe_<date>_<time>.png next to the
-// DLL at the window's size, at once, together with rowe_<date>_<time>.txt, a state snapshot taken
-// in the same frame; `shotscene` captures the scene before the HUD (pre-UI hook), `shotmenu` the
-// frame with the settings menu. `usershot` takes a screenshot as the key does.
+// The `usershot` command takes a screenshot as the key does. Test screenshots come from fnvbridge
+// (bridge_provider.cpp: capture points prelens, scene, final and overlay), with the bridge's state
+// of the same frame.
 //
 // With showcase=1 the key takes the showcase series instead (see "showcase series" below).
 #include <windows.h>
@@ -20,75 +19,15 @@
 #include <string.h>
 #include "fnvfov.h"
 
-static bool s_want, s_wantScene, s_wantMenu, s_wantUser;
+static bool s_wantUser;
 
-void ScreenshotRequest(int kind)
-{
-    if (kind == kShotScene) s_wantScene = true;
-    else if (kind == kShotWithMenu) s_wantMenu = true;
-    else if (kind == kShotUser) s_wantUser = true;
-    else s_want = true;
-}
+void ScreenshotUserRequest() { s_wantUser = true; }
 
 static void TimeStamp(char* out)
 {
     SYSTEMTIME t;
     GetLocalTime(&t);
     wsprintfA(out, "%04d%02d%02d_%02d%02d%02d_%03d", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, t.wMilliseconds);
-}
-
-// ---- test screenshots (commands): at once, window size, next to the DLL ----------------------
-
-// Copies `src` (any size, X8R8G8B8 or A8R8G8B8, MSAA or not) to system memory and writes the PNG.
-static bool Save(IDirect3DDevice9* dev, IDirect3DSurface9* src, const char* what)
-{
-    D3DSURFACE_DESC d;
-    if (FAILED(src->GetDesc(&d))) return false;
-    if (d.Format != D3DFMT_X8R8G8B8 && d.Format != D3DFMT_A8R8G8B8) {
-        Log("screenshot: unsupported format %d", d.Format);
-        return false;
-    }
-    IDirect3DSurface9* plain = src;
-    IDirect3DSurface9* resolved = nullptr;
-    if (d.MultiSampleType != D3DMULTISAMPLE_NONE) {
-        if (FAILED(dev->CreateRenderTarget(d.Width, d.Height, d.Format, D3DMULTISAMPLE_NONE, 0, FALSE, &resolved, nullptr)))
-            return false;
-        dev->StretchRect(src, nullptr, resolved, nullptr, D3DTEXF_NONE);
-        plain = resolved;
-    }
-    IDirect3DSurface9* sys = nullptr;
-    bool ok = false;
-    if (SUCCEEDED(dev->CreateOffscreenPlainSurface(d.Width, d.Height, d.Format, D3DPOOL_SYSTEMMEM, &sys, nullptr)) &&
-        SUCCEEDED(dev->GetRenderTargetData(plain, sys))) {
-        D3DLOCKED_RECT lr;
-        if (SUCCEEDED(sys->LockRect(&lr, nullptr, D3DLOCK_READONLY))) {
-            BYTE* rgb = (BYTE*)malloc((size_t)d.Width * d.Height * 3);
-            if (rgb) {
-                for (UINT y = 0; y < d.Height; ++y) {
-                    const BYTE* s = (const BYTE*)lr.pBits + (size_t)y * lr.Pitch;
-                    BYTE* o = rgb + (size_t)y * d.Width * 3;
-                    for (UINT x = 0; x < d.Width; ++x, s += 4, o += 3) {
-                        o[0] = s[2];
-                        o[1] = s[1];
-                        o[2] = s[0];
-                    }
-                }
-                char stamp[32], base[MAX_PATH], path[MAX_PATH];
-                TimeStamp(stamp);
-                wsprintfA(base, "%srowe_%s%s", ModDir(), stamp, what);
-                wsprintfA(path, "%s.png", base);
-                ok = WritePng(path, d.Width, d.Height, rgb);
-                free(rgb);
-                Log("screenshot: %s (%ux%u) %s", path, d.Width, d.Height, ok ? "saved" : "FAILED");
-                wsprintfA(path, "%s.txt", base);
-                WriteStateTo(path);
-            }
-            sys->UnlockRect();
-        }
-    }
-    if (sys) sys->Release();
-    if (resolved) resolved->Release();
-    return ok;
 }
 
 // ---- user screenshots: GPU copy, read back in strips, encoded on a worker thread -------------
@@ -483,9 +422,6 @@ void ScreenshotPresent(IDirect3DDevice9* dev, IDirect3DSurface9* frame)
         }
         ShowcaseFrame(dev, frame);
     }
-    if (!s_want) return;
-    s_want = false;
-    Save(dev, frame, "");
 }
 
 LONG ScreenshotNotice(char* out, int size)
@@ -499,19 +435,6 @@ IDirect3DSurface9* ScreenshotFreshCopy() { return s_copyFresh ? s_copySurface : 
 
 void ScreenshotAfterOverlay(IDirect3DDevice9* dev, IDirect3DSurface9* frame)
 {
+    if (frame) BridgeCaptureSurface(kBridgeOverlay, dev, frame);
     s_copyFresh = false;  // read back from the next frame on
-    if (!s_wantMenu || !frame) return;
-    s_wantMenu = false;
-    Save(dev, frame, "_menu");
-}
-
-void ScreenshotPreUI(IDirect3DDevice9* dev)
-{
-    if (!s_wantScene) return;
-    s_wantScene = false;
-    IDirect3DSurface9* rt = nullptr;
-    if (SUCCEEDED(dev->GetRenderTarget(0, &rt)) && rt) {
-        Save(dev, rt, "_scene");
-        rt->Release();
-    }
 }

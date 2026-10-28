@@ -320,7 +320,6 @@ static void __cdecl Stamp(int id)
         LensPreUI(D3DDevice());
         SupersamplePreUI(D3DDevice());  // pixelated look, sharp interface: from here on the window's resolution
         LensPreUIRetarget(D3DDevice());
-        ScreenshotPreUI(D3DDevice());
         BridgeCaptureRT(kBridgeScene, D3DDevice());
     }
 }

@@ -14,8 +14,9 @@
 static const FNVBridgeAPI* s_api;
 
 // The capture points, in frame order: before the lens warp, the scene before the HUD (after the
-// lens and the supersampling downscale), and the presented frame (before the settings overlay).
-static const char* kPoints[kBridgeCaptureCount] = {"prelens", "scene", "final"};
+// lens and the supersampling downscale), the presented frame (before the settings overlay), and
+// the frame with the settings overlay.
+static const char* kPoints[kBridgeCaptureCount] = {"prelens", "scene", "final", "overlay"};
 static volatile LONG s_want[kBridgeCaptureCount];
 
 // --- arguments: the bridge sends an object of strings and numbers ---
@@ -122,6 +123,18 @@ static int CmdReload(const char*, FNVBridgeJson* out, char*, int) { return Queue
 static int CmdPhoto(const char*, FNVBridgeJson* out, char*, int) { return Queue("photo", out); }
 static int CmdDeviceLost(const char*, FNVBridgeJson* out, char*, int) { return Queue("devicelost", out); }
 
+// Any line of ROWE's command runner (overlay, wheel, trace, cursor, wincursor, consolepos, nodes,
+// restart, usershot, ...), queued as is.
+static int CmdLine(const char* args, FNVBridgeJson* out, char* error, int size)
+{
+    char line[256];
+    if (!ArgString(args, "line", line, sizeof(line)) || !line[0]) {
+        _snprintf(error, size, "line is required");
+        return 0;
+    }
+    return Queue(line, out);
+}
+
 static int CmdFovTrace(const char* args, FNVBridgeJson* out, char*, int)
 {
     double frames = 300;
@@ -142,6 +155,10 @@ static const FNVBridgeCommand kCommands[] = {
     {"photo", "Turn photo mode on or off. Replies with ROWE's state ten frames later.", nullptr, 10, CmdPhoto},
     {"fovtrace", "Record every SetCameraFOV call for some frames to rowe_fovtrace.csv.", "{\"frames\": {\"type\": \"integer\"}}", 1, CmdFovTrace},
     {"devicelost", "Simulate a lost D3D device (tests ROWE's Reset handling).", nullptr, 5, CmdDeviceLost},
+    {"cmd",
+     "Run a line of ROWE's own command runner: overlay open|close|tab <name>, wheel <delta>, trace (one-frame D3D9 trace), "
+     "cursor <x> <y>, wincursor <x> <y>, consolepos <x> <y>, nodes <name> <depth>, usershot, restart. Replies two frames later.",
+     "{\"line\": {\"type\": \"string\"}}", 2, CmdLine},
 };
 
 static int RequestCapture(const char* point)

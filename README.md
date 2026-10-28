@@ -294,19 +294,18 @@ Run `build.bat` (Visual Studio 2017+ or Build Tools with the x86 C++ tools, a Wi
 
 ## Developer tooling
 
-The plugin can be observed and driven without screenshots or input: it writes its state to a file and runs commands from a file, which is how it was tested. The scripts in `tools` use these files (`tools\run_game.ps1` starts a test run with a command file from `tools\tests`; `tools\play.ps1` starts the game at a window size and loads the newest save).
+The plugin can be observed and driven without screenshots or input: it writes its state to a file and runs commands from a file (`tools\play.ps1` uses it to start the game at a window size and load the newest save). Tests drive the game through fnvbridge, Claude Code's bridge to the game (`B:\fnvbridge`): ROWE registers with it as a provider (`src\bridge_provider.cpp`), and the bridge's `run_script` tool plays the scripts in `tools\tests` (see `TESTING.md`).
 
 | File (next to the DLL) | Contents |
 |---|---|
 | `rowe.log` | Startup, hooks and their byte checks, device and render targets, FOV call sites, commands |
 | `rowe_state.txt` | Rewritten four times a second: menus, player FOV fields, camera frustum, per-frame hook counts, window, settings, lens/supersampling/mouse trap decisions, patch status |
-| `rowe_cmd.txt` | Commands run on the game thread: console lines, keys (through xNVSE), waits, screenshots, settings (list in `src/gamecmd.cpp`) |
+| `rowe_cmd.txt` | Commands run on the game thread: console lines, waits, settings, photo mode, traces (list in `src/gamecmd.cpp`) |
 | `rowe_trace.req` → `rowe_trace.txt` | One frame of D3D9 calls |
 | `rowe_fovtrace.csv` | Every FOV setter call for N frames (`fovtrace N`) |
 
-`tools/run_game.ps1` starts a scripted test run (archiving the previous run's output to `runs\`),
-`tools/tests/*.txt` are the test scripts, `tools/wait_game.sh` waits for the game to exit,
-`tools/focus_game.ps1` brings the window to the front, `tools/vats_perf.sh` measures frame rate and video memory around VATS, `tools/vanilla_shot.ps1` takes a screenshot without the mod (it parks `rowe.dll` for that run) (`-Drag` adds a left-button drag between two captures), `tools/mouse_move.ps1` sends relative mouse moves or drags, `tools/image_shift.py` measures the shift between two screenshots, `tools/bsa.py` lists or extracts files from the game's archives, `tools/fovtrace_summary.py`,
+`tools/tests/*.txt` are the test scripts (played by fnvbridge's `run_script`), `tools/wait_game.sh` waits for the game to exit,
+`tools/vats_perf.sh` measures frame rate and video memory around VATS, `tools/vanilla_shot.ps1` takes a screenshot without the mod (it parks `rowe.dll` for that run) (`-Drag` adds a left-button drag between two captures), `tools/mouse_move.ps1` sends relative mouse moves or drags, `tools/image_shift.py` measures the shift between two screenshots, `tools/bsa.py` lists or extracts files from the game's archives, `tools/fovtrace_summary.py`,
 `tools/shrink.py`, `tools/pecheck.py` and `tools/disasm.py` help read the results.
 
 ## License

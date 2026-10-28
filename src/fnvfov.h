@@ -92,7 +92,6 @@ void SettingsLoad();
 void SettingsSave();
 #include "keynames.h"  // KeyFromName, KeyName
 
-bool WritePng(const char* path, int w, int h, const BYTE* rgb);  // png.cpp: rows top first
 
 // d3d9hook.cpp: the engine's D3D9 device. Device methods are hooked in its vtable; calls the mod
 // makes itself inside a D3DScope bypass the hooks (no tracing, no supersampling redirection).
@@ -116,13 +115,11 @@ void ModWriteState(FILE* f);  // the mod's settings and per-feature decisions, f
 
 // screenshot.cpp: F12 or the `shot` command. Captures the frame as PNG next to the DLL, with a
 // state snapshot of the same frame (.txt).
-enum { kShotFrame, kShotScene, kShotWithMenu, kShotUser };
-void ScreenshotRequest(int kind);
+void ScreenshotUserRequest();  // a screenshot as the screenshot key takes it
 void ScreenshotPresent(IDirect3DDevice9* dev, IDirect3DSurface9* frame);  // final frame, before the overlay
 void ScreenshotAfterOverlay(IDirect3DDevice9* dev, IDirect3DSurface9* frame);  // with the settings menu
 IDirect3DSurface9* ScreenshotFreshCopy();  // the key's screenshot taken this frame (its copy, any size), or null
 bool ShowcaseUserSettings(float* fov, int* lens, bool* stats);  // while a showcase series runs: the user's own values
-void ScreenshotPreUI(IDirect3DDevice9* dev);                               // scene only, before the HUD
 void ScreenshotLost();
 void OverlayNotice(const char* text);  // shows text at the top of the screen for a few seconds (not in screenshots)
 LONG ScreenshotNotice(char* out, int size);  // the last key's shot's "<file> was saved to <folder>", and a count raised with each
@@ -213,7 +210,6 @@ void UiInstall();
 void UiWriteState(FILE* f);
 void UiFrame();                 // from Present
 void UiDumpNodes(const char* name, int depth);
-void UiDumpTiles(int id);          // menu id's tile tree with values to rowe_tiles.txt
 bool ScopeView();               // the HUD shows a scope overlay (aiming a scoped weapon)
 // lens.cpp: the Pip-Boy screen is the active menu (fully open, nothing over it).
 bool PipboyScreenActive();
@@ -256,7 +252,7 @@ void GameCmdQueue(const char* line);  // appends a command (the mod's own sequen
 void GameCmdNow(const char* line);    // runs a command on the next tick, ahead of the queue
 
 // bridge_provider.cpp: ROWE as a provider for fnvbridge (Claude Code's bridge to the game)
-enum { kBridgePreLens, kBridgeScene, kBridgeFinal, kBridgeCaptureCount };
+enum { kBridgePreLens, kBridgeScene, kBridgeFinal, kBridgeOverlay, kBridgeCaptureCount };
 void BridgeProviderInit(void* messaging, UINT32 handle);  // in NVSEPlugin_Load
 void BridgeCaptureRT(int point, IDirect3DDevice9* dev);  // render target 0, if the bridge wants this point
 void BridgeCaptureSurface(int point, IDirect3DDevice9* dev, IDirect3DSurface9* surface);

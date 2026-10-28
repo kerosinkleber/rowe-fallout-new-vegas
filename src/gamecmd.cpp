@@ -1,44 +1,31 @@
-// Command channel for driving the game from tools without screenshots or focus tricks.
+// Command channel: ROWE's own command sequences, and a file for tools that start the game.
 //
 //  rowe_cmd.txt  one command per line; the file is read (and deleted) on the game thread and its
-//                  lines are queued and run in order, one per main-loop frame:
+//                  lines are queued and run in order, one per main-loop frame. tools\continue.ps1 and
+//                  tools\play.ps1 use it to load a save; the restart and the launcher queue the same
+//                  lines (GameCmdQueue), the settings menu runs single lines (GameCmdNow).
 //                    con <console line>    run a console line through xNVSE (e.g. con load "Save 1")
-//                    key <key>             tap a key at the DirectInput layer (xNVSE TapKey)
-//                    keydown / keyup <key> hold / release it (xNVSE HoldKey / ReleaseKey)
 //                    wait <frames>         pause the queue for that many presented frames
-//                    waitgameplay [frames] pause until gameplay (no menu, not loading), or the timeout
-//                    gameplay [frames]     the same, and clears what is in the way, logged: a message box
-//                                          (1001) with CloseAllMenus, the pause menu (1013) with Esc, only
-//                                          after a loading screen closed (never the main menu)
-//                    waitfocus [frames]    pause until the game window is in front (input needs it)
-//                    waitnomenu <id> [frames]  pause until that menu is closed (1007 = loading screen)
-//                    waitmenu <id> [frames]    pause until that menu is open (1013 = main/pause menu)
+//                    waitmenu <id> [frames]  pause until that menu is open (1013 = main/pause menu)
 //                    trace                 one-frame D3D9 trace (rowe_trace.txt)
 //                    fovtrace <frames>     FOV setter trace (rowe_fovtrace.csv)
-//                    log <text>            marker line in rowe.log
-//                    shot / shotscene      screenshot of the finished frame / of the scene before the HUD
-//                    shotmenu              screenshot including the settings menu
 //                    usershot              screenshot as the screenshot key takes it (screenshotdir, size, format)
 //                    photo                 photo mode on / off, as the photo shortcut
-//                    tiles <menu id>       the menu's tile tree with its values to rowe_tiles.txt
 //                    wheel <delta>         photo mode's wheel zoom, as the mouse wheel (120 per notch, + closer)
 //                    overlay <action>      settings menu: open, close, tab <name> (View, Image, ...)
-//                    set <key> <value>     change a setting (fov, zoomfov, lens, pipboyfov, supersample, pixelsize, pixelhud,
-//                                          mousetrap, skipintros, scopelens)
+//                    set <key> <value>     change a setting and save rowe.ini (fov, zoomfov, lens, pipboyfov,
+//                                          supersample, pixelsize, pixelhud, mousetrap, skipintros, scopelens)
 //                    reload                re-read rowe.ini
 //                    devicelost            the next Present reports a lost device, so the game resets it
 //                    restart               as the menu's restart button: save, start again, load the save
-//                    ifmenu <id> <command> run the command only if that menu is visible (1013 = pause menu)
-//                    ifnomenu <id> <command> run the command only if that menu is not visible
 //                    cursor <x> <y>        write the game's menu cursor fields (render pixels; does not move it)
 //                    wincursor <x> <y>     move the Windows cursor to that client position
 //                    consolepos <x> <y>    move the console text (applies at the next printed line)
 //                    nodes <name> <depth>  log the interface scene below that node ("-": the root)
-//                  <key> is a name (a-z, 0-9, f1-f12, tab, esc, enter, space, lalt, lshift, lctrl,
-//                  lmb, rmb, mmb, up, down, left, right) or a DirectInput code (decimal; mouse 256+).
-//  The queue state (pending lines, current wait, last command) is in rowe_state.txt. A command that
-//  needs gameplay (photo, key, keydown, wheel) run while a menu or popup is open logs a WARNING with
-//  the menus shown, as does a wait that times out, so a test that went astray says so.
+//
+//  Tests drive the game through fnvbridge (B:\fnvbridge, see TESTING.md): its run_script plays the
+//  scripts in tools\tests (key input, waits for gameplay or menus, screenshots, tile dumps, log
+//  markers) and sends ROWE's own commands here through the rowe provider (bridge_provider.cpp).
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,12 +42,6 @@ static ConsoleInterface* s_console;
 static char s_queue[256][512];
 static int s_head, s_count;
 static int s_waitFrames;
-static bool s_waitGameplay, s_waitFocus;
-static bool s_clearMenus;    // gameplay: closes a message box, Esc on the pause menu
-static DWORD s_clearedFrame; // when it last closed one
-static bool s_loading;       // the loading screen (1007) was shown last tick
-static DWORD s_loadedFrame;  // when the last loading screen closed (0: none yet, or one is shown)
-static int s_waitNoMenu;  // menu id to wait for to close
 static int s_waitMenu;    // menu id to wait for to open
 static char s_last[600];
 static DWORD s_loops;
@@ -88,25 +69,6 @@ void GameCmdInit(void* consoleInterface)
     Log("cmd: console interface %p (version %u)", s_console, s_console ? s_console->version : 0);
 }
 
-static int KeyCode(const char* name)
-{
-    static const struct { const char* name; int code; } kKeys[] = {
-        {"esc", 1}, {"tab", 15}, {"enter", 28}, {"space", 57}, {"lctrl", 29}, {"lshift", 42}, {"lalt", 56},
-        {"f1", 59}, {"f2", 60}, {"f3", 61}, {"f4", 62}, {"f5", 63}, {"f6", 64}, {"f7", 65}, {"f8", 66}, {"f9", 67},
-        {"f10", 68}, {"f11", 87}, {"f12", 88}, {"up", 200}, {"left", 203}, {"right", 205}, {"down", 208},
-        {"lmb", 256}, {"rmb", 257}, {"mmb", 258}, {"grave", 41},
-        {"q", 16}, {"w", 17}, {"e", 18}, {"r", 19}, {"t", 20}, {"y", 21}, {"u", 22}, {"i", 23}, {"o", 24}, {"p", 25},
-        {"a", 30}, {"s", 31}, {"d", 32}, {"f", 33}, {"g", 34}, {"h", 35}, {"j", 36}, {"k", 37}, {"l", 38},
-        {"z", 44}, {"x", 45}, {"c", 46}, {"v", 47}, {"b", 48}, {"n", 49}, {"m", 50},
-        {"1", 2}, {"2", 3}, {"3", 4}, {"4", 5}, {"5", 6}, {"6", 7}, {"7", 8}, {"8", 9}, {"9", 10}, {"0", 11},
-    };
-    for (auto& k : kKeys)
-        if (lstrcmpiA(k.name, name) == 0) return k.code;
-    char* end;
-    long v = strtol(name, &end, 10);
-    return *end == 0 && v > 0 && v < 264 ? (int)v : -1;
-}
-
 static bool RunConsole(const char* line)
 {
     if (!s_console || !s_console->RunScriptLine) {
@@ -119,47 +81,6 @@ static bool RunConsole(const char* line)
 }
 
 bool GameConsole(const char* line) { return RunConsole(line); }
-
-static void Key(const char* fn, const char* name)
-{
-    int code = KeyCode(name);
-    if (code < 0) { Log("cmd: unknown key '%s'", name); return; }
-    char line[64];
-    wsprintfA(line, "%s %d", fn, code);
-    RunConsole(line);
-}
-
-// The game reads input only while it is in front.
-static bool HasFocus()
-{
-    DWORD pid = 0;
-    GetWindowThreadProcessId(GetForegroundWindow(), &pid);
-    return pid == GetCurrentProcessId();
-}
-
-static bool MenuShown(int id) { return ((BYTE*)0x011F308F)[id] != 0; }
-
-// The menus shown besides the HUD (1004) and its parts (1086 and up): "1001 1013", or "none".
-static void ShownMenus(char* out, int size)
-{
-    int n = 0;
-    out[0] = 0;
-    for (int id = 1001; id < 1086 && n < size - 8; ++id)
-        if (id != 1004 && MenuShown(id)) n += wsprintfA(out + n, n ? " %d" : "%d", id);
-    if (!n) lstrcpynA(out, "none", size);
-}
-
-// A command that needs gameplay, run outside it with a game loaded: says so (and what is shown).
-static void CheckGameplay(const char* cmd)
-{
-    if (InGameplay() || !RestartGameLoaded()) return;
-    char menus[96];
-    ShownMenus(menus, sizeof(menus));
-    Log("cmd: WARNING: '%s' outside gameplay (menus shown: %s; 1001 message box, 1013 pause menu; window in front %d)", cmd, menus,
-        HasFocus());
-}
-
-static void Run(char* cmd);
 
 static void SetCommand(char* arg)
 {
@@ -191,32 +112,12 @@ static void Run(char* cmd)
         *arg++ = 0;
         while (*arg == ' ') ++arg;
     }
-    if (!lstrcmpiA(cmd, "photo") || !lstrcmpiA(cmd, "key") || !lstrcmpiA(cmd, "keydown") || !lstrcmpiA(cmd, "wheel")) CheckGameplay(s_last);
     if (lstrcmpiA(cmd, "con") == 0 && arg) RunConsole(arg);
-    else if (lstrcmpiA(cmd, "key") == 0 && arg) Key("TapKey", arg);
-    else if (lstrcmpiA(cmd, "keydown") == 0 && arg) Key("HoldKey", arg);
-    else if (lstrcmpiA(cmd, "keyup") == 0 && arg) Key("ReleaseKey", arg);
     else if (lstrcmpiA(cmd, "wait") == 0 && arg) s_waitFrames = atoi(arg);
-    else if (lstrcmpiA(cmd, "waitgameplay") == 0 || lstrcmpiA(cmd, "gameplay") == 0) {
-        s_waitGameplay = true;
-        s_clearMenus = lstrcmpiA(cmd, "gameplay") == 0;
-        s_clearedFrame = FrameCount();
-        s_waitFrames = arg ? atoi(arg) : 3600;
-    }
     else if (lstrcmpiA(cmd, "waitmenu") == 0 && arg) {
         s_waitMenu = atoi(arg);
         char* t = strchr(arg, ' ');
         s_waitFrames = t ? atoi(t + 1) : 3600;
-    }
-    else if (lstrcmpiA(cmd, "waitnomenu") == 0 && arg) {
-        s_waitNoMenu = atoi(arg);
-        char* t = strchr(arg, ' ');
-        s_waitFrames = t ? atoi(t + 1) : 3600;
-    }
-    else if (lstrcmpiA(cmd, "waitfocus") == 0) {
-        s_waitFocus = true;
-        s_waitFrames = arg ? atoi(arg) : 36000;
-        if (!HasFocus()) Log("cmd: waiting for the game window to be in front (click into it)");
     }
     else if (lstrcmpiA(cmd, "trace") == 0) {
         char path[MAX_PATH];
@@ -226,13 +127,8 @@ static void Run(char* cmd)
         Log("cmd: frame trace requested");
     }
     else if (lstrcmpiA(cmd, "fovtrace") == 0) FovTraceStart(arg ? atoi(arg) : 300);
-    else if (lstrcmpiA(cmd, "log") == 0) Log("cmd: ---- %s ----", arg ? arg : "");
-    else if (lstrcmpiA(cmd, "shot") == 0) ScreenshotRequest(kShotFrame);
-    else if (lstrcmpiA(cmd, "shotscene") == 0) ScreenshotRequest(kShotScene);
-    else if (lstrcmpiA(cmd, "shotmenu") == 0) ScreenshotRequest(kShotWithMenu);
-    else if (lstrcmpiA(cmd, "usershot") == 0) ScreenshotRequest(kShotUser);
+    else if (lstrcmpiA(cmd, "usershot") == 0) ScreenshotUserRequest();
     else if (lstrcmpiA(cmd, "photo") == 0) PhotoToggle();
-    else if (lstrcmpiA(cmd, "tiles") == 0 && arg) UiDumpTiles(atoi(arg));
     else if (lstrcmpiA(cmd, "wheel") == 0 && arg) PhotoWheel(atol(arg));
     else if (lstrcmpiA(cmd, "overlay") == 0 && arg) OverlayCommand(arg);
     else if (lstrcmpiA(cmd, "reload") == 0) SettingsLoad();
@@ -251,14 +147,6 @@ static void Run(char* cmd)
         float x = 0, y = 0;
         if (sscanf(arg, "%f %f", &x, &y) == 2) DinputSetGameCursor(x, y);
         Log("cmd: game cursor set to %.1f %.1f", x, y);
-    }
-    else if ((lstrcmpiA(cmd, "ifmenu") == 0 || lstrcmpiA(cmd, "ifnomenu") == 0) && arg) {
-        bool wantOpen = lstrcmpiA(cmd, "ifmenu") == 0;
-        int id = atoi(arg);
-        char* rest = strchr(arg, ' ');
-        bool open = id > 0 && id < 1200 && ((BYTE*)0x011F308F)[id];
-        Log("cmd: %s %d: %s", cmd, id, open ? "open" : "not open");
-        if (open == wantOpen && rest) Run(rest + 1);
     }
     else if (lstrcmpiA(cmd, "set") == 0 && arg) SetCommand(arg);
     else if (lstrcmpiA(cmd, "nodes") == 0 && arg) {
@@ -308,16 +196,6 @@ static void ReadFile()
 void GameCmdTick()
 {
     ++s_loops;
-    // A game is loaded once a loading screen has closed; before the first one 1013 is the main menu.
-    bool loading = MenuShown(1007);
-    if (loading) s_loadedFrame = 0;
-    else if (s_loading) s_loadedFrame = FrameCount() | 1;
-    s_loading = loading;
-    // A message box that opens while a test runs, said once (it stops the input the test sends).
-    static bool boxSeen;
-    bool box = MenuShown(1001) && (s_count > 0 || s_waitFrames > 0);
-    if (box && !boxSeen) Log("cmd: WARNING: a message box (1001) opened while the queue runs (last command '%s')", s_last);
-    boxSeen = box;
     for (int i = 0; i < s_nowCount; ++i) Run(s_now[i]);
     s_nowCount = 0;
     if (s_loops % 10 == 0) ReadFile();
@@ -327,48 +205,17 @@ void GameCmdTick()
         if (now != last) {
             DWORD step = now - last;
             last = now;
-            if (s_waitGameplay && InGameplay()) {
-                Log("cmd: gameplay reached");
-                s_waitFrames = 0;
-            } else if (s_waitMenu && ((BYTE*)0x011F308F)[s_waitMenu]) {
+            if (s_waitMenu && ((BYTE*)0x011F308F)[s_waitMenu]) {
                 Log("cmd: menu %d open", s_waitMenu);
                 s_waitFrames = 0;
-            } else if (s_waitNoMenu && !((BYTE*)0x011F308F)[s_waitNoMenu]) {
-                Log("cmd: menu %d closed", s_waitNoMenu);
-                s_waitFrames = 0;
-            } else if (s_waitFocus && HasFocus()) {
-                Log("cmd: game window is in front");
-                s_waitFrames = 0;
             } else {
-                // gameplay: what is in the way is closed, at most every 30 frames, half a second after a
-                // loading screen closed at the earliest (before the first load 1013 is the main menu,
-                // where Esc asks to quit; after one the user's list shows the pause menu). A message box
-                // (TTW's after loading the user's list; Enter does not close it) with CloseAllMenus, the
-                // pause menu with Esc.
-                if (s_waitGameplay && s_clearMenus && s_loadedFrame && now - s_loadedFrame >= 30 && now - s_clearedFrame >= 30) {
-                    if (MenuShown(1001)) {
-                        s_clearedFrame = now;
-                        Log("cmd: gameplay: a message box (1001) is open, closing it (CloseAllMenus)");
-                        RunConsole("CloseAllMenus");
-                    } else if (MenuShown(1013)) {
-                        s_clearedFrame = now;
-                        Log("cmd: gameplay: the pause menu (1013) is open, pressing Esc");
-                        RunConsole("TapKey 1");
-                    }
-                }
                 s_waitFrames = (int)step >= s_waitFrames ? 0 : s_waitFrames - (int)step;
-                if (!s_waitFrames && (s_waitGameplay || s_waitFocus || s_waitNoMenu || s_waitMenu)) {
-                    char menus[96];
-                    ShownMenus(menus, sizeof(menus));
-                    Log("cmd: WARNING: %s timed out (menus shown: %s; window in front %d)",
-                        s_waitGameplay ? "waitgameplay" : s_waitFocus ? "waitfocus" : s_waitMenu ? "waitmenu" : "waitnomenu", menus, HasFocus());
-                }
+                if (!s_waitFrames && s_waitMenu) Log("cmd: WARNING: waitmenu %d timed out", s_waitMenu);
             }
         }
         if (s_waitFrames > 0) return;
     }
-    s_waitGameplay = s_waitFocus = s_clearMenus = false;
-    s_waitNoMenu = s_waitMenu = 0;
+    s_waitMenu = 0;
     if (!s_count) return;
     char cmd[512];
     lstrcpyA(cmd, s_queue[s_head]);
@@ -379,6 +226,6 @@ void GameCmdTick()
 
 void GameCmdWriteState(FILE* f)
 {
-    fprintf(f, "cmd queue: %d pending, wait %d%s, last \"%s\", in gameplay %d, focus %d\n", s_count, s_waitFrames,
-            s_waitGameplay ? " (for gameplay)" : s_waitFocus ? " (for focus)" : "", s_last, InGameplay(), HasFocus());
+    fprintf(f, "cmd queue: %d pending, wait %d%s, last \"%s\", in gameplay %d, in front %d\n", s_count, s_waitFrames,
+            s_waitMenu ? " (for a menu)" : "", s_last, InGameplay(), GameInFront());
 }

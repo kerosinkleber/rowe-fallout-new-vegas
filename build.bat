@@ -38,7 +38,7 @@ for %%r in (rowe_dll rowe_launcher) do (
   rc /nologo /i"%~dp0res" /fo"%OUT%\%%r.res" "%~dp0res\%%r.rc" || exit /b 1
 )
 cl /nologo /O2 /MT /EHsc /W3 /std:c++17 /D_CRT_SECURE_NO_WARNINGS "%TRIM%" /LD /I"%OUT%" /I"%~dp0third_party\reshade" /I"%~dp0third_party\imgui" /I"%~dp0third_party\fonts" /DIMGUI_IMPL_WIN32_DISABLE_GAMEPAD /Fo"%OUT%\\" /Fe"%OUT%\rowe.dll" ^
-  "%SRC%\main.cpp" "%SRC%\detour.cpp" "%SRC%\crashlog.cpp" "%SRC%\settings.cpp" "%SRC%\keynames.cpp" "%SRC%\oldnames.cpp" "%SRC%\png.cpp" ^
+  "%SRC%\main.cpp" "%SRC%\detour.cpp" "%SRC%\crashlog.cpp" "%SRC%\settings.cpp" "%SRC%\keynames.cpp" "%SRC%\oldnames.cpp" ^
   "%SRC%\d3d9hook.cpp" "%SRC%\frame.cpp" "%SRC%\screenshot.cpp" "%SRC%\overlay.cpp" ^
   "%SRC%\fov.cpp" "%SRC%\lens.cpp" "%SRC%\mousetrap.cpp" "%SRC%\intros.cpp" "%SRC%\supersample.cpp" "%SRC%\dinput.cpp" "%SRC%\ui.cpp" ^
   "%SRC%\recon_win32.cpp" "%SRC%\recon_engine.cpp" "%SRC%\gamecmd.cpp" "%SRC%\reshade_addon.cpp" "%SRC%\restart.cpp" "%SRC%\gameui.cpp" "%SRC%\gamefont.cpp" "%SRC%\hudstyle.cpp" "%SRC%\borderless.cpp" "%SRC%\mcm.cpp" "%SRC%\autosave.cpp" "%SRC%\photo.cpp" "%SRC%\bridge_provider.cpp" "%OUT%\rowe_dll.res" ^
