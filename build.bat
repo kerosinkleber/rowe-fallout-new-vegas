@@ -41,7 +41,7 @@ cl /nologo /O2 /MT /EHsc /W3 /std:c++17 /D_CRT_SECURE_NO_WARNINGS "%TRIM%" /LD /
   "%SRC%\main.cpp" "%SRC%\detour.cpp" "%SRC%\crashlog.cpp" "%SRC%\settings.cpp" "%SRC%\keynames.cpp" "%SRC%\oldnames.cpp" "%SRC%\png.cpp" ^
   "%SRC%\d3d9hook.cpp" "%SRC%\frame.cpp" "%SRC%\screenshot.cpp" "%SRC%\overlay.cpp" ^
   "%SRC%\fov.cpp" "%SRC%\lens.cpp" "%SRC%\mousetrap.cpp" "%SRC%\intros.cpp" "%SRC%\supersample.cpp" "%SRC%\dinput.cpp" "%SRC%\ui.cpp" ^
-  "%SRC%\recon_win32.cpp" "%SRC%\recon_engine.cpp" "%SRC%\gamecmd.cpp" "%SRC%\reshade_addon.cpp" "%SRC%\restart.cpp" "%SRC%\gameui.cpp" "%SRC%\gamefont.cpp" "%SRC%\hudstyle.cpp" "%SRC%\borderless.cpp" "%SRC%\mcm.cpp" "%SRC%\autosave.cpp" "%SRC%\photo.cpp" "%OUT%\rowe_dll.res" ^
+  "%SRC%\recon_win32.cpp" "%SRC%\recon_engine.cpp" "%SRC%\gamecmd.cpp" "%SRC%\reshade_addon.cpp" "%SRC%\restart.cpp" "%SRC%\gameui.cpp" "%SRC%\gamefont.cpp" "%SRC%\hudstyle.cpp" "%SRC%\borderless.cpp" "%SRC%\mcm.cpp" "%SRC%\autosave.cpp" "%SRC%\photo.cpp" "%SRC%\bridge_provider.cpp" "%OUT%\rowe_dll.res" ^
   "%~dp0third_party\imgui\imgui.cpp" "%~dp0third_party\imgui\imgui_draw.cpp" "%~dp0third_party\imgui\imgui_tables.cpp" "%~dp0third_party\imgui\imgui_widgets.cpp" ^
   "%~dp0third_party\imgui\backends\imgui_impl_dx9.cpp" "%~dp0third_party\imgui\backends\imgui_impl_win32.cpp" ^
   /link user32.lib kernel32.lib advapi32.lib dxguid.lib ole32.lib oleaut32.lib windowscodecs.lib shell32.lib || exit /b 1

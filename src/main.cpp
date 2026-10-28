@@ -118,6 +118,7 @@ extern "C" __declspec(dllexport) bool NVSEPlugin_Load(const NVSEInterface* nvse)
     g_messaging = (NVSEMessagingInterface*)nvse->QueryInterface(kInterface_Messaging);
     if (g_messaging) g_messaging->RegisterListener(g_handle, "NVSE", OnMessage);
     else Log("Load: no messaging interface");
+    BridgeProviderInit(g_messaging, g_handle);
     GameCmdInit(nvse->QueryInterface(kInterface_Console));
     McmInit(nvse->QueryInterface(kInterface_Script));
     RestartAtLoad();

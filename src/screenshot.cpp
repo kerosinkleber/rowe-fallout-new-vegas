@@ -471,6 +471,7 @@ void ScreenshotPresent(IDirect3DDevice9* dev, IDirect3DSurface9* frame)
     if (down && !prev) s_wantUser = true;
     prev = down;
     if (!frame) return;
+    BridgeCaptureSurface(kBridgeFinal, dev, frame);
     {
         D3DScope scope;
         ScreenshotReadStrips(dev, kStripsPerFrame);

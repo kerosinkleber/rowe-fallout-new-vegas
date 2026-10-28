@@ -254,6 +254,12 @@ DWORD LastWorldDrawFrame();      // FrameCount() when the world was last drawn
 void GameCmdInit(void* consoleInterface);
 void GameCmdQueue(const char* line);  // appends a command (the mod's own sequences)
 void GameCmdNow(const char* line);    // runs a command on the next tick, ahead of the queue
+
+// bridge_provider.cpp: ROWE as a provider for fnvbridge (Claude Code's bridge to the game)
+enum { kBridgePreLens, kBridgeScene, kBridgeFinal, kBridgeCaptureCount };
+void BridgeProviderInit(void* messaging, UINT32 handle);  // in NVSEPlugin_Load
+void BridgeCaptureRT(int point, IDirect3DDevice9* dev);  // render target 0, if the bridge wants this point
+void BridgeCaptureSurface(int point, IDirect3DDevice9* dev, IDirect3DSurface9* surface);
 bool GameConsole(const char* line);   // runs a console line now (game thread)
 // restart.cpp: save, start the game again the same way, load the save (settings that apply at start).
 void RestartGame();
