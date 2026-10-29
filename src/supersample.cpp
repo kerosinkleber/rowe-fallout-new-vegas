@@ -732,6 +732,11 @@ IDirect3DSurface9* SupersampleReplaceTarget(IDirect3DSurface9* s)
 // with hard pixels (pixelated look). ownScene: called outside the engine's BeginScene (Present).
 static void Show(IDirect3DDevice9* dev, IDirect3DSurface9* target, bool ownScene)
 {
+    // Factor 1 (the virtual back buffer at the window's size, for live changes): a plain copy.
+    D3DSURFACE_DESC td;
+    if (ownScene && !s_pixel && s_fakeSurface && SUCCEEDED(target->GetDesc(&td)) && (int)td.Width == s_virtW && (int)td.Height == s_virtH &&
+        SUCCEEDED(dev->StretchRect(s_fakeSurface, nullptr, target, nullptr, D3DTEXF_NONE)))
+        return;
     if (!s_vs && FAILED(dev->CreateVertexShader((const DWORD*)g_downscaleVS, &s_vs))) return;
     if (!s_ps && FAILED(dev->CreatePixelShader((const DWORD*)g_downscalePS, &s_ps))) return;
     static IDirect3DPixelShader9 *s_fastPS, *s_pixelPS;

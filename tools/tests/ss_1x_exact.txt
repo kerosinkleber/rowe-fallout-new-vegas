@@ -1,0 +1,15 @@
+# Factor 1 with the virtual back buffer at the window's size (the default) against [dev]
+# alwaysvirtual=0: run once each, compare the paused frames (compare_shots); they should be equal.
+log ss1x: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+key esc
+wait 200
+shot
+key esc
+wait 60
+log ss1x: done
+con qqq
