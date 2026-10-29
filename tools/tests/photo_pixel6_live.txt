@@ -1,0 +1,51 @@
+# Photo mode on and off six times at pixel size 6 (after a live change into it: start with supersample=4, pixelsize=1). A stress run died once just after photo
+# mode ended at pixel size 6 (KERNEL32 access violation). Saves nothing.
+log photopx6: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+ssapply 16
+wait 120
+ssapply 1 6
+wait 150
+log photopx6: round 1
+photo
+wait 120
+photo
+wait 60
+gameplay 600
+log photopx6: round 2
+photo
+wait 120
+photo
+wait 60
+gameplay 600
+log photopx6: round 3
+photo
+wait 120
+photo
+wait 60
+gameplay 600
+log photopx6: round 4
+photo
+wait 120
+photo
+wait 60
+gameplay 600
+log photopx6: round 5
+photo
+wait 120
+photo
+wait 60
+gameplay 600
+log photopx6: round 6
+photo
+wait 120
+photo
+wait 60
+gameplay 600
+shot
+log photopx6: done
+con qqq
