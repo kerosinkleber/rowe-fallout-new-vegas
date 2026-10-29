@@ -239,8 +239,9 @@ Notes:
   menus is open (the MCM in the pause menu) applies when it closes: a menu open during the change
   would keep clip rectangles of the old size. If it cannot (not enough video memory,
   or it keeps resetting), the mod goes back to the previous size and says so at the top of the
-  screen. The game's antialiasing stays at what it was at start; a higher factor lowers it as at a
-  start (16× gets 4× MSAA, 36× none), a lower factor does not raise it again until the next start.
+  screen. The game's antialiasing follows the factor as at a start (16× gets 4× MSAA, 36× none) up to
+  your setting, as long as the game started with it on; started at 36× or more (without MSAA), it
+  comes back only at the next start.
   In a Tale of Two Wastelands list with NVTF's `bModifyDirectXBehavior=1` (the game keeps
   its resources over a reset) any device reset could crash in the graphics driver now and then in
   testing (about one in 15, also without ROWE's supersampling and without changing the size, the same

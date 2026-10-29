@@ -1,0 +1,20 @@
+# MSAA coming back at a lower factor (start with supersample=16 and the game's MSAA 8x, which is
+# capped to 4x at 16x): live to 4x (rowe.log: the scene target and its depth "made with MSAA 8"),
+# a shot, back to 16x (4x MSAA), a shot. Saves nothing.
+log ssmsaaback: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+shot
+log ssmsaaback: to 4x
+ssapply 4
+wait 150
+shot
+log ssmsaaback: to 16x
+ssapply 16
+wait 150
+shot
+log ssmsaaback: done
+con qqq

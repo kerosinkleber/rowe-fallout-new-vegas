@@ -398,10 +398,12 @@ static void SupersampleInstall()
 }
 
 // Render target / depth surface creation: the samples for one at the virtual size after a live
-// change, capped for the new factor (never more than the game asked for).
+// change: the user's antialiasing capped for the new factor. Only where the game asks for MSAA (it
+// started with it on): a lower factor then brings back what a higher one took (16x starts with 4x
+// MSAA, 4x gets 8x again); the game resolves its targets the same way at any sample count.
 D3DMULTISAMPLE_TYPE SupersampleMsaaFor(UINT w, UINT h, D3DMULTISAMPLE_TYPE ms)
 {
-    if (s_msaaCap < 0 || ms <= D3DMULTISAMPLE_NONMASKABLE || (int)w != s_virtW || (int)h != s_virtH || (UINT)ms <= (UINT)s_msaaCap) return ms;
+    if (s_msaaCap < 0 || ms <= D3DMULTISAMPLE_NONMASKABLE || (int)w != s_virtW || (int)h != s_virtH || (UINT)ms == (UINT)s_msaaCap) return ms;
     return s_msaaCap >= 2 ? (D3DMULTISAMPLE_TYPE)s_msaaCap : D3DMULTISAMPLE_NONE;
 }
 
