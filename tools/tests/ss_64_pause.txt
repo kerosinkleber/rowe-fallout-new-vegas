@@ -14,6 +14,8 @@ log ss64pause: pause menu
 key esc
 wait 300
 shot
+trace
+wait 60
 key esc
 wait 200
 gameplay 900

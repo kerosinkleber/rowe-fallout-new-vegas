@@ -444,14 +444,18 @@ void SupersampleApplyPending(D3DPRESENT_PARAMETERS* pp)
     // (SupersampleMsaaFor), so a high factor does not keep 8x MSAA (36x with 8x: 7 GB, and the
     // game reset its device over and over).
     if (s_gameMsaa >= 0) s_msaaCap = CapMsaa((UINT)s_gameMsaa);
-    // The screen size globals (set at start by 0x004DA670): the render target pool sizes its
-    // textures from them (a plugin in the MO2 list made one more pool size read them), and some
-    // interface code reads the height.
-    int* screen = (int*)0x011F9430;
-    if (screen[0] == oldW && screen[1] == oldH) {
-        screen[0] = s_virtW;
-        screen[1] = s_virtH;
-    } else if (screen[0] || screen[1]) Log("supersample: screen size globals hold %dx%d, not %dx%d (left)", screen[0], screen[1], oldW, oldH);
+    // The screen size globals (both pairs set at start by 0x004DA670): 0x0118947C/80 (read through
+    // 0x004DC1F0/0x004DC200 by the interface, e.g. Tile::Update's scissor rectangles, which clipped
+    // the pause menu's buttons away, and by render code), and 0x011F9430/4 (the render target pool
+    // sizes its textures from them; a plugin in the MO2 list made one more pool size read them).
+    static int* const kScreenSizes[] = {(int*)0x0118947C, (int*)0x011F9430};
+    for (int* screen : kScreenSizes) {
+        if (screen[0] == oldW && screen[1] == oldH) {
+            screen[0] = s_virtW;
+            screen[1] = s_virtH;
+        } else if (screen[0] || screen[1])
+            Log("supersample: screen size globals at %p hold %dx%d, not %dx%d (left)", screen, screen[0], screen[1], oldW, oldH);
+    }
     if (BYTE* rd = *(BYTE**)0x011F4748)
         if (*(int*)(rd + 0xA98) == oldW && *(int*)(rd + 0xA9C) == oldH) {
             *(int*)(rd + 0xA98) = s_virtW;
