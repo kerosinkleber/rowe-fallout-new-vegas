@@ -1,0 +1,28 @@
+# A change while a game menu is open (start with supersample=4; as from the MCM in the pause menu):
+# set supersample 16 with the pause menu open waits (rowe.log: no "changed live" until it closes),
+# then applies in gameplay; the pause menu opened again has its buttons. The set line saves rowe.ini.
+log ssinmenu: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+log ssinmenu: pause menu, set 16
+key esc
+wait 90
+set supersample 16
+wait 150
+shot
+log ssinmenu: close it
+key esc
+wait 200
+gameplay 900
+shot
+log ssinmenu: pause menu again
+key esc
+wait 200
+shot
+key esc
+wait 90
+log ssinmenu: done
+con qqq

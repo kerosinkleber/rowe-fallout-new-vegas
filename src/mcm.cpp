@@ -218,7 +218,7 @@ static const char* Help(int id)
     case kOptPipboyGame: return "Use the game's Pip-Boy FOV (fPipboy1stPersonFOV).";
     case kOptSupersample:
         return SupersampleLive() ? "Renders at a larger size and scales it down: sharper, slower. Pixels rendered per pixel shown. "
-                                   "Applies at once (the screen goes black for a moment); off while the pixelated look is on."
+                                   "Applies when you close the menu (the screen goes black for a moment); off while the pixelated look is on."
                                  : "Renders at a larger size and scales it down: sharper, slower. Pixels rendered per pixel shown. "
                                    "Applies at the next start (F8 menu: restart game).";
     case kOptMousetrap: return "In gameplay: the mouse stays in the window in gameplay and is free in menus. Always: also in menus.";

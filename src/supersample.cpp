@@ -306,7 +306,10 @@ void SupersampleUndo(const char* why)
 bool SupersampleCanUndo() { return s_canUndo; }
 
 // Once per frame: a factor or pixel size changed in the settings (the menu, the MCM, a command, a
-// reload) is shown at once, outside loading screens.
+// reload) is shown at once, outside loading screens and the game's menus: a menu open during the
+// change keeps clip rectangles of the old size (Tile::Update computes them only when a tile changes;
+// the pause menu lost its buttons), so a change from the MCM waits until the pause menu closes. The
+// settings menu (F8) is not a game menu.
 void SupersampleFollowSettings()
 {
     if (s_followSS < 0) {
@@ -315,7 +318,7 @@ void SupersampleFollowSettings()
         return;
     }
     if (s_followSS == g_settings.supersample && s_followPx == g_settings.pixelSize) return;
-    if (s_pending || ((BYTE*)0x011F308F)[1007]) return;  // a change under way, or a loading screen
+    if (s_pending || ((BYTE*)0x011F308F)[1007] || MenuOpen()) return;  // a change under way, a loading screen or a menu
     s_followSS = g_settings.supersample;
     s_followPx = g_settings.pixelSize;
     if (!SupersampleLive()) return;  // applies at the next start
