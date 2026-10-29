@@ -1,0 +1,44 @@
+# Live changes with the pixelated look and a sharp interface (start with pixelsize=8, pixelhud=0,
+# the user's setup): pixel 3, 16x supersampling, back to pixel 8, with the pause menu and the
+# Pip-Boy at pixel 3 and 8. The set lines save rowe.ini: restore it afterwards.
+log sspixsharp: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+log sspixsharp: pixel 8 (start)
+shot
+log sspixsharp: pixel 3
+set pixelsize 3
+wait 150
+shot
+key esc
+wait 150
+shot
+key esc
+wait 90
+gameplay 600
+con TapControl 14
+wait 150
+shot
+con TapControl 14
+wait 150
+gameplay 600
+log sspixsharp: 16x
+set pixelsize 1
+set supersample 16
+wait 150
+shot
+log sspixsharp: pixel 8
+set pixelsize 8
+wait 150
+shot
+key esc
+wait 150
+shot
+key esc
+wait 90
+gameplay 600
+log sspixsharp: done
+con qqq

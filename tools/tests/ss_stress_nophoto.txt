@@ -1,0 +1,119 @@
+# Stress without photo mode: 30 live changes in a row in the plain install (start with supersample=4, pixelsize=1),
+# factors 1-64 and pixel sizes 2-8 in a fixed random order, photo mode and the Panini lens switched
+# in between; rowe.log has the memory after each. Saves nothing (the set lines save rowe.ini).
+log ssstress: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+log ssstress: change 1 to 36
+ssapply 36
+wait 150
+log ssstress: change 2 to 9
+ssapply 9
+wait 150
+log ssstress: change 3 to 64
+ssapply 64
+wait 150
+log ssstress: change 4 to 1 6
+ssapply 1 6
+wait 150
+log ssstress: change 5 to 1
+ssapply 1
+wait 150
+log ssstress: change 6 to 9
+ssapply 9
+wait 150
+set lens 2
+wait 60
+set lens 0
+wait 30
+log ssstress: change 7 to 1 3
+ssapply 1 3
+wait 150
+log ssstress: change 8 to 4
+ssapply 4
+wait 150
+log ssstress: change 9 to 49
+ssapply 49
+wait 150
+log ssstress: change 10 to 1 4
+ssapply 1 4
+wait 150
+shot
+log ssstress: change 11 to 1
+ssapply 1
+wait 150
+log ssstress: change 12 to 1 3
+ssapply 1 3
+wait 150
+log ssstress: change 13 to 16
+ssapply 16
+wait 150
+log ssstress: change 14 to 1
+ssapply 1
+wait 150
+log ssstress: change 15 to 9
+ssapply 9
+wait 150
+set lens 2
+wait 60
+set lens 0
+wait 30
+log ssstress: change 16 to 64
+ssapply 64
+wait 150
+log ssstress: change 17 to 49
+ssapply 49
+wait 150
+log ssstress: change 18 to 4
+ssapply 4
+wait 150
+log ssstress: change 19 to 25
+ssapply 25
+wait 150
+log ssstress: change 20 to 4
+ssapply 4
+wait 150
+shot
+log ssstress: change 21 to 1 3
+ssapply 1 3
+wait 150
+log ssstress: change 22 to 49
+ssapply 49
+wait 150
+log ssstress: change 23 to 1
+ssapply 1
+wait 150
+log ssstress: change 24 to 1 4
+ssapply 1 4
+wait 150
+set lens 2
+wait 60
+set lens 0
+wait 30
+log ssstress: change 25 to 4
+ssapply 4
+wait 150
+log ssstress: change 26 to 25
+ssapply 25
+wait 150
+log ssstress: change 27 to 1 6
+ssapply 1 6
+wait 150
+log ssstress: change 28 to 1 4
+ssapply 1 4
+wait 150
+log ssstress: change 29 to 1 3
+ssapply 1 3
+wait 150
+log ssstress: change 30 to 1
+ssapply 1
+wait 150
+shot
+ssapply 4
+wait 150
+shot
+log ssstress: done
+con qqq
