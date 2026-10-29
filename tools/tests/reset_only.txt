@@ -1,0 +1,56 @@
+# Baseline: plain device resets (devicelost, no size change, no photo mode) in the plain install, 15 of
+# them two seconds apart. Saves nothing.
+log resetonly: boot
+waitmenu 1013 3600
+wait 60
+con load "ROWE Photo Test"
+gameplay 3600
+wait 120
+log resetonly: reset 1
+devicelost
+wait 120
+log resetonly: reset 2
+devicelost
+wait 120
+log resetonly: reset 3
+devicelost
+wait 120
+log resetonly: reset 4
+devicelost
+wait 120
+log resetonly: reset 5
+devicelost
+wait 120
+log resetonly: reset 6
+devicelost
+wait 120
+log resetonly: reset 7
+devicelost
+wait 120
+log resetonly: reset 8
+devicelost
+wait 120
+log resetonly: reset 9
+devicelost
+wait 120
+log resetonly: reset 10
+devicelost
+wait 120
+log resetonly: reset 11
+devicelost
+wait 120
+log resetonly: reset 12
+devicelost
+wait 120
+log resetonly: reset 13
+devicelost
+wait 120
+log resetonly: reset 14
+devicelost
+wait 120
+log resetonly: reset 15
+devicelost
+wait 120
+shot
+log resetonly: done
+con qqq
