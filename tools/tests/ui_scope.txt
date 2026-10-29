@@ -3,7 +3,7 @@
 log ui_scope: boot
 waitmenu 1013 3600
 wait 60
-con load "ROWE sniper rifle"
+con load "fnvfov sniper rifle"
 waitgameplay 3600
 wait 120
 waitfocus 3600
